@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout/main :: head('Configuración - HGS')}"></head>
+<body>
+
+    <aside th:replace="~{layout/main :: sidebar('config')}"></aside>
+
+    <main class="main-content">
+        <header th:replace="~{layout/main :: header('Configuración de Stock Inteligente')}"></header>
+
+        <section style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: start;">
+            <div class="table-container" style="padding: 30px;">
+                <h2 class="section-title" style="margin-bottom: 24px;">⚙️ Ajuste de Parámetros</h2>
+                <form th:action="@{/config/save}" method="post">
+                    <div class="form-group">
+                        <label>Medicamento a configurar</label>
+                        <select name="medicamentoId" class="form-control" required>
+                            <option value="">Seleccione un medicamento...</option>
+                            <option th:each="med : ${medicamentos}" 
+                                    th:value="${med.id}" 
+                                    th:text="${med.nombre} + ' (' + ${med.codigo} + ')'"></option>
+                        </select>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+                        <div class="form-group">
+                            <label>Stock Mínimo</label>
+                            <input type="number" name="minimo" class="form-control" placeholder="3000">
+                        </div>
+                        <div class="form-group">
+                            <label>Stock Deseable</label>
+                            <input type="number" name="deseable" class="form-control" placeholder="5000">
+                        </div>
+                        <div class="form-group">
+                            <label>Recomendado</label>
+                            <input type="number" name="recomendado" class="form-control" placeholder="4500" readonly style="background: #f8fafc; cursor: not-allowed;">
+                        </div>
+                    </div>
+                    
+                    <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 20px;">
+                        <em>* El stock recomendado se calcula automáticamente basado en el consumo promedio diario.</em>
+                    </p>
+
+                    <div class="form-group">
+                        <label>Unidades por Blister</label>
+                        <input type="number" name="unidadesPorBlister" class="form-control" placeholder="10">
+                    </div>
+
+                    <div class="form-group">
+                        <label>PIN de Autorización Digital</label>
+                        <input type="password" name="pin" class="form-control" required placeholder="****">
+                    </div>
+
+                    <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">
+                        💾 Guardar Cambios e Inteligencia
+                    </button>
+                </form>
+            </div>
+
+            <div class="table-container">
+                <div class="table-header">
+                    <h3 style="font-size: 1rem; font-weight: 600;">📊 Niveles de Stock Actuales</h3>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Medicamento</th>
+                            <th>Mín.</th>
+                            <th>Stock</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="med : ${medicamentos}">
+                            <td>
+                                <div style="font-weight: 500;" th:text="${med.nombre}">Ibuprofeno</div>
+                                <div style="font-size: 0.75rem; color: var(--text-secondary);" th:text="${med.codigo}">COD-123</div>
+                            </td>
+                            <td th:text="${med.minimo}">3000</td>
+                            <td th:text="${med.stockTotal}">2450</td>
+                            <td>
+                                <span th:text="${med.stockBajo} ? 'CRÍTICO' : 'ÓPTIMO'" 
+                                      class="badge" 
+                                      th:classappend="${med.stockBajo} ? 'badge-danger' : 'badge-success'">ÓPTIMO</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+
+</body>
+</html>
