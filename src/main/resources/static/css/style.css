@@ -115,6 +115,8 @@ body {
     gap: 12px;
 }
 
+
+
 .sidebar nav a:hover {
     background-color: var(--sidebar-hover);
     color: var(--white);
@@ -449,6 +451,53 @@ tr:hover td {
     background: #fee2e2;
     border-color: #fca5a5;
     transform: scale(1.05);
+}
+
+/* Professional Action Buttons */
+.action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 7px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1.5px solid transparent;
+    transition: all 0.18s ease;
+    letter-spacing: 0.01em;
+}
+
+.action-btn-edit {
+    background: #eff6ff;
+    color: #2563eb;
+    border-color: #bfdbfe;
+}
+
+.action-btn-edit:hover {
+    background: #2563eb;
+    color: #fff;
+    border-color: #2563eb;
+    box-shadow: 0 3px 10px rgba(37, 99, 235, 0.25);
+    transform: translateY(-1px);
+}
+
+.action-btn-delete {
+    background: #fff5f5;
+    color: #dc2626;
+    border-color: #fecaca;
+}
+
+.action-btn-delete:hover {
+    background: #dc2626;
+    color: #fff;
+    border-color: #dc2626;
+    box-shadow: 0 3px 10px rgba(220, 38, 38, 0.25);
+    transform: translateY(-1px);
+}
+
+.action-btn svg {
+    flex-shrink: 0;
 }
 
 /* Animations */

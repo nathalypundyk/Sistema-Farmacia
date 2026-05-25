@@ -69,8 +69,8 @@
                                     <span style="font-family: monospace; font-size: 0.85rem; background: #f1f5f9; padding: 3px 8px; border-radius: 4px;" th:text="${u.username}">jperez</span>
                                 </td>
                                 <td>
-                                    <div style="display: flex; gap: 4px; flex-wrap: wrap;">
-                                        <span th:each="r : ${u.roles}" th:text="${r.nombre}"
+                                    <div style="display: flex; gap: 4px; flex-wrap: wrap;" class="roles-container">
+                                        <span th:each="r : ${u.roles}" th:text="${r.nombre}" th:data-id="${r.id}"
                                               style="background: linear-gradient(135deg, #ede9fe, #ddd6fe); color: #6d28d9; padding: 3px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 600;">ADMIN</span>
                                     </div>
                                 </td>
@@ -78,11 +78,17 @@
                                     <span th:text="${u.activo ? 'ACTIVO' : 'INACTIVO'}" class="badge"
                                           th:classappend="${u.activo} ? 'badge-success' : 'badge-danger'">ACTIVO</span>
                                 </td>
-                                <td style="text-align: center;">
+                                <td style="text-align: center; white-space: nowrap;">
+                                    <button type="button" class="action-btn action-btn-edit"
+                                            th:onclick="editUsuario(this, [[${u.id}]], [[${u.nombre}]], [[${u.apellido}]], [[${u.username}]], [[${u.activo}]])" title="Editar usuario">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                        Editar
+                                    </button>
                                     <form th:action="@{/usuarios/delete}" method="post" style="display:inline;">
                                         <input type="hidden" name="id" th:value="${u.id}"/>
-                                        <button type="submit" class="btn-icon-delete" onclick="return confirm('¿Seguro que desea eliminar este usuario?');" title="Eliminar usuario">
-                                            🗑️
+                                        <button type="submit" class="action-btn action-btn-delete" onclick="return confirm('¿Confirmar eliminación?');" title="Eliminar usuario">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                                            Eliminar
                                         </button>
                                     </form>
                                 </td>
@@ -110,22 +116,23 @@
                 <h3>👤 Nuevo Usuario</h3>
                 <button type="button" class="modal-close" onclick="closeModal('usuarioModal')">&times;</button>
             </div>
-            <form th:action="@{/usuarios/save}" method="post" class="modal-form">
+            <form th:action="@{/usuarios/save}" method="post" class="modal-form" id="formUsuario">
+                <input type="hidden" name="id" id="usuarioId"/>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                     <div class="form-group">
                         <label>Nombre <span style="color: #ef4444;">*</span></label>
-                        <input type="text" name="nombre" class="form-control" placeholder="Ej: Juan" required/>
+                        <input type="text" name="nombre" id="usuarioNombre" class="form-control" placeholder="Ej: Juan" required/>
                     </div>
                     <div class="form-group">
                         <label>Apellido <span style="color: #ef4444;">*</span></label>
-                        <input type="text" name="apellido" class="form-control" placeholder="Ej: Pérez" required/>
+                        <input type="text" name="apellido" id="usuarioApellido" class="form-control" placeholder="Ej: Pérez" required/>
                     </div>
                 </div>
 
                 <div class="form-group">
                     <label>Username (login) <span style="color: #ef4444;">*</span></label>
-                    <input type="text" name="username" class="form-control" placeholder="Ej: jperez" required/>
+                    <input type="text" name="username" id="usuarioUsername" class="form-control" placeholder="Ej: jperez" required/>
                 </div>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
@@ -153,7 +160,7 @@
 
                 <div class="form-group">
                     <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                        <input type="checkbox" name="activo" value="true" checked style="accent-color: var(--success); width: 18px; height: 18px;"/>
+                        <input type="checkbox" name="activo" id="usuarioActivo" value="true" checked style="accent-color: var(--success); width: 18px; height: 18px;"/>
                         <span style="font-weight: 500;">Usuario Activo</span>
                     </label>
                 </div>
@@ -168,14 +175,44 @@
 
     <script>
         function openModal(id) {
+            if (id === 'usuarioModal' && !document.getElementById('usuarioId').value) {
+                document.getElementById('formUsuario').reset();
+                document.querySelector('#usuarioModal h3').innerText = '👤 Nuevo Usuario';
+            }
             const modal = document.getElementById(id);
             modal.style.display = 'flex';
             setTimeout(() => modal.querySelector('.modal-content').style.transform = 'scale(1)', 10);
         }
+        
+        function editUsuario(btn, id, nombre, apellido, username, activo) {
+            const row = btn.closest('tr');
+            const rolesContainer = row.querySelector('.roles-container');
+            const rolesIds = Array.from(rolesContainer.querySelectorAll('span')).map(s => s.getAttribute('data-id'));
+            
+            document.getElementById('usuarioId').value = id;
+            document.getElementById('usuarioNombre').value = nombre;
+            document.getElementById('usuarioApellido').value = apellido;
+            document.getElementById('usuarioUsername').value = username;
+            document.getElementById('usuarioActivo').checked = activo === true || activo === 'true';
+            
+            // reset checkboxes
+            document.querySelectorAll('input[name="roles"]').forEach(cb => {
+                cb.checked = rolesIds.includes(cb.value);
+            });
+            
+            document.querySelector('#usuarioModal h3').innerText = '✏️ Editar Usuario';
+            openModal('usuarioModal');
+        }
         function closeModal(id) {
             const modal = document.getElementById(id);
             modal.querySelector('.modal-content').style.transform = 'scale(0.95)';
-            setTimeout(() => modal.style.display = 'none', 150);
+            setTimeout(() => {
+                modal.style.display = 'none';
+                if (id === 'usuarioModal') {
+                    document.getElementById('usuarioId').value = '';
+                    document.getElementById('formUsuario').reset();
+                }
+            }, 150);
         }
         document.querySelectorAll('.modal-overlay').forEach(m => {
             m.addEventListener('click', e => { if (e.target === m) closeModal(m.id); });
