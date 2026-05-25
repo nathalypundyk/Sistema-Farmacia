@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout/main :: head('Gestión Lotes - HGS')}"></head>
+<body>
+
+    <aside th:replace="~{layout/main :: sidebar('lotes')}"></aside>
+
+    <main class="main-content">
+        <header th:replace="~{layout/main :: header('Gestión de Lotes')}"></header>
+
+        <div style="margin-top: 30px;">
+            <!-- Stats Cards -->
+            <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-bottom: 30px;">
+                <div class="stat-card">
+                    <h3>📦 Total Lotes</h3>
+                    <div class="value" th:text="${#lists.size(lotes)}">0</div>
+                    <small>Lotes registrados</small>
+                </div>
+                <div class="stat-card success">
+                    <h3>✅ Activos</h3>
+                    <div class="value" th:text="${#lists.size(lotes.?[estado == 'ACTIVO'])}">0</div>
+                    <small>En inventario</small>
+                </div>
+                <div class="stat-card warning">
+                    <h3>💊 Medicamentos</h3>
+                    <div class="value" th:text="${#lists.size(medicamentos)}">0</div>
+                    <small>Disponibles</small>
+                </div>
+            </div>
+
+            <!-- Header Row -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <div>
+                    <h2 class="section-title" style="margin: 0;">📦 Inventario de Lotes</h2>
+                    <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 4px;">Gestión y control de lotes del inventario</p>
+                </div>
+                <button class="btn btn-primary" onclick="openModal('loteModal')" style="padding: 10px 20px;">
+                    <span>+</span> Nuevo Lote
+                </button>
+            </div>
+
+            <!-- Table -->
+            <div class="table-container">
+                <div style="overflow-x: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Nro. Lote</th>
+                                <th>Nro. Serie</th>
+                                <th>Medicamento</th>
+                                <th>Depósito</th>
+                                <th>Vencimiento</th>
+                                <th style="text-align: center;">Cantidad</th>
+                                <th style="text-align: center;">Estado</th>
+                                <th style="text-align: center;">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="lote : ${lotes}">
+                                <td>
+                                    <span style="font-weight: 600; color: var(--accent);" th:text="${lote.nroLote}">L-123</span>
+                                </td>
+                                <td>
+                                    <span style="font-family: monospace; font-size: 0.85rem; background: #f1f5f9; padding: 3px 8px; border-radius: 4px;" th:text="${lote.nroSerie != null ? lote.nroSerie : '—'}">S-456</span>
+                                </td>
+                                <td>
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <div style="width: 28px; height: 28px; background: linear-gradient(135deg, #10b981, #059669); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; color: white;">💊</div>
+                                        <span style="font-weight: 500;" th:text="${lote.medicamento != null ? lote.medicamento.nombre : '—'}">Medicamento</span>
+                                    </div>
+                                </td>
+                                <td th:text="${lote.deposito != null ? lote.deposito.nombre : '—'}">Depósito</td>
+                                <td>
+                                    <span style="font-weight: 500;" th:text="${#temporals.format(lote.fechaVencimiento, 'dd/MM/yyyy')}">01/01/2025</span>
+                                </td>
+                                <td style="text-align: center;">
+                                    <span style="font-weight: 600; font-size: 1rem;" th:text="${lote.cantidadDisponible}">100</span>
+                                </td>
+                                <td style="text-align: center;">
+                                    <span th:text="${lote.estado}" class="badge"
+                                          th:classappend="${lote.estado == 'ACTIVO'} ? 'badge-success' : 'badge-warning'">ACTIVO</span>
+                                </td>
+                                <td style="text-align: center;">
+                                    <form th:action="@{/lotes/delete}" method="post" style="display:inline;">
+                                        <input type="hidden" name="id" th:value="${lote.id}"/>
+                                        <button type="submit" class="btn-icon-delete" onclick="return confirm('¿Seguro que desea eliminar este lote?');" title="Eliminar lote">
+                                            🗑️
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            <tr th:if="${#lists.isEmpty(lotes)}">
+                                <td colspan="8" style="text-align: center; padding: 60px 20px;">
+                                    <div style="display: flex; flex-direction: column; align-items: center; gap: 12px;">
+                                        <span style="font-size: 3rem; opacity: 0.3;">📦</span>
+                                        <span style="font-size: 1rem; font-weight: 500; color: var(--text-secondary);">No hay lotes registrados</span>
+                                        <button class="btn btn-primary" onclick="openModal('loteModal')" style="padding: 8px 16px; font-size: 0.85rem;">+ Agregar primer lote</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal Nuevo Lote -->
+    <div id="loteModal" class="modal-overlay" style="display:none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>📦 Nuevo Lote</h3>
+                <button type="button" class="modal-close" onclick="closeModal('loteModal')">&times;</button>
+            </div>
+            <form th:action="@{/lotes/save}" method="post" class="modal-form">
+
+                <div class="form-group">
+                    <label>Medicamento <span style="color: #ef4444;">*</span></label>
+                    <select name="medicamento.id" class="form-control" required>
+                        <option value="">Seleccione un medicamento...</option>
+                        <option th:each="m : ${medicamentos}" th:value="${m.id}" th:text="${m.nombre}"></option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Depósito <span style="color: #ef4444;">*</span></label>
+                    <select name="deposito.id" class="form-control" required>
+                        <option value="">Seleccione un depósito...</option>
+                        <option th:each="d : ${depositos}" th:value="${d.id}" th:text="${d.nombre}"></option>
+                    </select>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <div class="form-group">
+                        <label>Nro. Lote <span style="color: #ef4444;">*</span></label>
+                        <input type="text" name="nroLote" class="form-control" placeholder="Ej: LOT-2026-001" required/>
+                    </div>
+                    <div class="form-group">
+                        <label>Nro. Serie</label>
+                        <input type="text" name="nroSerie" class="form-control" placeholder="Ej: SER-001"/>
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <div class="form-group">
+                        <label>Vencimiento <span style="color: #ef4444;">*</span></label>
+                        <input type="date" name="fechaVencimiento" class="form-control" required/>
+                    </div>
+                    <div class="form-group">
+                        <label>Cantidad <span style="color: #ef4444;">*</span></label>
+                        <input type="number" name="cantidadDisponible" class="form-control" placeholder="0" required min="1"/>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('loteModal')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">💾 Guardar Lote</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function openModal(id) {
+            const modal = document.getElementById(id);
+            modal.style.display = 'flex';
+            setTimeout(() => modal.querySelector('.modal-content').style.transform = 'scale(1)', 10);
+        }
+        function closeModal(id) {
+            const modal = document.getElementById(id);
+            modal.querySelector('.modal-content').style.transform = 'scale(0.95)';
+            setTimeout(() => modal.style.display = 'none', 150);
+        }
+        // Close modal on overlay click
+        document.querySelectorAll('.modal-overlay').forEach(m => {
+            m.addEventListener('click', e => { if (e.target === m) closeModal(m.id); });
+        });
+    </script>
+
+</body>
+</html>

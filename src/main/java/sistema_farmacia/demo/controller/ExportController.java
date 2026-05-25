@@ -2,6 +2,8 @@ package sistema_farmacia.demo.controller;
 
 import jakarta.servlet.http.HttpServletResponse;
 import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.xssf.usermodel.XSSFColor;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -12,12 +14,8 @@ import sistema_farmacia.demo.repository.AuditoriaAjusteRepository;
 import sistema_farmacia.demo.repository.MedicamentoRepository;
 
 import java.io.IOException;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
-
-import net.sf.jasperreports.engine.*;
-import net.sf.jasperreports.engine.data.JRBeanCollectionDataSource;
-import java.util.HashMap;
-import java.util.Map;
 
 @Controller
 public class ExportController {
@@ -30,38 +28,125 @@ public class ExportController {
 
     @GetMapping("/export/auditoria")
     public void exportToExcel(HttpServletResponse response) throws IOException {
-        response.setContentType("application/octet-stream");
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         response.setHeader("Content-Disposition", "attachment; filename=auditoria_farmacia.xlsx");
 
         List<AuditoriaAjuste> auditorias = auditoriaRepo.findAllByOrderByFechaDesc();
 
         Workbook workbook = new XSSFWorkbook();
-        Sheet sheet = workbook.createSheet("Auditoria");
+        Sheet sheet = workbook.createSheet("Auditoría");
 
-        // Header
-        Row headerRow = sheet.createRow(0);
-        String[] columns = {"Fecha", "Usuario", "Medicamento", "Accion", "Anterior", "Nuevo", "PIN Verificado"};
+        // ===== Title Row =====
+        CellStyle titleStyle = workbook.createCellStyle();
+        Font titleFont = workbook.createFont();
+        titleFont.setBold(true);
+        titleFont.setFontHeightInPoints((short) 16);
+        titleFont.setColor(IndexedColors.WHITE.getIndex());
+        titleStyle.setFont(titleFont);
+        titleStyle.setFillForegroundColor(IndexedColors.DARK_BLUE.getIndex());
+        titleStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        titleStyle.setAlignment(HorizontalAlignment.CENTER);
+        titleStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+
+        Row titleRow = sheet.createRow(0);
+        titleRow.setHeightInPoints(40);
+        Cell titleCell = titleRow.createCell(0);
+        titleCell.setCellValue("📋 Reporte de Auditoría - HGS Pharma");
+        titleCell.setCellStyle(titleStyle);
+        sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 6));
+
+        // ===== Subtitle Row =====
+        CellStyle subtitleStyle = workbook.createCellStyle();
+        Font subtitleFont = workbook.createFont();
+        subtitleFont.setFontHeightInPoints((short) 10);
+        subtitleFont.setColor(IndexedColors.GREY_50_PERCENT.getIndex());
+        subtitleStyle.setFont(subtitleFont);
+        subtitleStyle.setAlignment(HorizontalAlignment.CENTER);
+
+        Row subtitleRow = sheet.createRow(1);
+        Cell subtitleCell = subtitleRow.createCell(0);
+        subtitleCell.setCellValue("Generado el: " + java.time.LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")));
+        subtitleCell.setCellStyle(subtitleStyle);
+        sheet.addMergedRegion(new CellRangeAddress(1, 1, 0, 6));
+
+        // ===== Header Row =====
+        CellStyle headerStyle = workbook.createCellStyle();
+        Font headerFont = workbook.createFont();
+        headerFont.setBold(true);
+        headerFont.setFontHeightInPoints((short) 11);
+        headerFont.setColor(IndexedColors.WHITE.getIndex());
+        headerStyle.setFont(headerFont);
+        headerStyle.setFillForegroundColor(IndexedColors.ROYAL_BLUE.getIndex());
+        headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        headerStyle.setBorderBottom(BorderStyle.THIN);
+        headerStyle.setAlignment(HorizontalAlignment.CENTER);
+        headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+
+        Row headerRow = sheet.createRow(3);
+        headerRow.setHeightInPoints(30);
+        String[] columns = {"Fecha", "Hora", "Usuario", "Medicamento", "Acción", "Cant. Anterior", "Cant. Nueva"};
         for (int i = 0; i < columns.length; i++) {
             Cell cell = headerRow.createCell(i);
             cell.setCellValue(columns[i]);
-            CellStyle style = workbook.createCellStyle();
-            Font font = workbook.createFont();
-            font.setBold(true);
-            style.setFont(font);
-            cell.setCellStyle(style);
+            cell.setCellStyle(headerStyle);
         }
 
-        // Data
-        int rowIdx = 1;
+        // ===== Data Rows =====
+        CellStyle dataStyle = workbook.createCellStyle();
+        dataStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+        dataStyle.setBorderBottom(BorderStyle.THIN);
+        dataStyle.setBorderTop(BorderStyle.THIN);
+        dataStyle.setBorderLeft(BorderStyle.THIN);
+        dataStyle.setBorderRight(BorderStyle.THIN);
+
+        CellStyle altRowStyle = workbook.createCellStyle();
+        altRowStyle.cloneStyleFrom(dataStyle);
+        altRowStyle.setFillForegroundColor(IndexedColors.PALE_BLUE.getIndex());
+        altRowStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+
+        DateTimeFormatter dateFmt = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        DateTimeFormatter timeFmt = DateTimeFormatter.ofPattern("HH:mm:ss");
+
+        int rowIdx = 4;
         for (AuditoriaAjuste audit : auditorias) {
-            Row row = sheet.createRow(rowIdx++);
-            row.createCell(0).setCellValue(audit.getFecha().toString());
-            row.createCell(1).setCellValue(audit.getUsuario());
-            row.createCell(2).setCellValue(audit.getMedicamentoNombre());
-            row.createCell(3).setCellValue(audit.getAccion());
-            row.createCell(4).setCellValue(audit.getCantidadAnterior() != null ? audit.getCantidadAnterior() : 0);
-            row.createCell(5).setCellValue(audit.getCantidadNueva() != null ? audit.getCantidadNueva() : 0);
-            row.createCell(6).setCellValue(audit.getPinVerificado() ? "SI" : "NO");
+            Row row = sheet.createRow(rowIdx);
+            CellStyle currentStyle = (rowIdx % 2 == 0) ? altRowStyle : dataStyle;
+
+            Cell c0 = row.createCell(0);
+            c0.setCellValue(audit.getFecha() != null ? audit.getFecha().format(dateFmt) : "");
+            c0.setCellStyle(currentStyle);
+
+            Cell c1 = row.createCell(1);
+            c1.setCellValue(audit.getFecha() != null ? audit.getFecha().format(timeFmt) : "");
+            c1.setCellStyle(currentStyle);
+
+            Cell c2 = row.createCell(2);
+            c2.setCellValue(audit.getUsuario());
+            c2.setCellStyle(currentStyle);
+
+            Cell c3 = row.createCell(3);
+            c3.setCellValue(audit.getMedicamentoNombre());
+            c3.setCellStyle(currentStyle);
+
+            Cell c4 = row.createCell(4);
+            c4.setCellValue(audit.getAccion());
+            c4.setCellStyle(currentStyle);
+
+            Cell c5 = row.createCell(5);
+            c5.setCellValue(audit.getCantidadAnterior() != null ? audit.getCantidadAnterior() : 0);
+            c5.setCellStyle(currentStyle);
+
+            Cell c6 = row.createCell(6);
+            c6.setCellValue(audit.getCantidadNueva() != null ? audit.getCantidadNueva() : 0);
+            c6.setCellStyle(currentStyle);
+
+            rowIdx++;
+        }
+
+        // Auto-size columns
+        for (int i = 0; i < columns.length; i++) {
+            sheet.autoSizeColumn(i);
+            sheet.setColumnWidth(i, Math.max(sheet.getColumnWidth(i), 3500));
         }
 
         workbook.write(response.getOutputStream());
@@ -70,21 +155,98 @@ public class ExportController {
 
     @GetMapping("/export/pdf")
     public void exportToPdf(HttpServletResponse response) throws Exception {
-        response.setContentType("application/pdf");
-        response.setHeader("Content-Disposition", "attachment; filename=reporte_inventario.pdf");
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        response.setHeader("Content-Disposition", "attachment; filename=inventario_medicamentos.xlsx");
 
         List<Medicamento> medicamentos = medicamentoRepo.findAll();
-        JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(medicamentos);
 
-        // En un entorno real usaríamos un archivo .jrxml
-        // Por simplicidad para este roadmap, simulamos la generación del reporte
-        JasperReport jasperReport = JasperCompileManager.compileReport(
-            getClass().getResourceAsStream("/reports/inventario.jrxml"));
-        
-        Map<String, Object> parameters = new HashMap<>();
-        parameters.put("titulo", "Reporte de Inventario - HGS Pharma");
+        Workbook workbook = new XSSFWorkbook();
+        Sheet sheet = workbook.createSheet("Inventario");
 
-        JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, parameters, dataSource);
-        JasperExportManager.exportReportToPdfStream(jasperPrint, response.getOutputStream());
+        // ===== Title =====
+        CellStyle titleStyle = workbook.createCellStyle();
+        Font titleFont = workbook.createFont();
+        titleFont.setBold(true);
+        titleFont.setFontHeightInPoints((short) 16);
+        titleFont.setColor(IndexedColors.WHITE.getIndex());
+        titleStyle.setFont(titleFont);
+        titleStyle.setFillForegroundColor(IndexedColors.DARK_TEAL.getIndex());
+        titleStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        titleStyle.setAlignment(HorizontalAlignment.CENTER);
+
+        Row titleRow = sheet.createRow(0);
+        titleRow.setHeightInPoints(40);
+        Cell titleCell = titleRow.createCell(0);
+        titleCell.setCellValue("💊 Inventario de Medicamentos - HGS Pharma");
+        titleCell.setCellStyle(titleStyle);
+        sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 5));
+
+        // ===== Subtitle =====
+        CellStyle subStyle = workbook.createCellStyle();
+        Font subFont = workbook.createFont();
+        subFont.setFontHeightInPoints((short) 10);
+        subFont.setColor(IndexedColors.GREY_50_PERCENT.getIndex());
+        subStyle.setFont(subFont);
+        subStyle.setAlignment(HorizontalAlignment.CENTER);
+
+        Row subRow = sheet.createRow(1);
+        Cell subCell = subRow.createCell(0);
+        subCell.setCellValue("Generado el: " + java.time.LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")));
+        subCell.setCellStyle(subStyle);
+        sheet.addMergedRegion(new CellRangeAddress(1, 1, 0, 5));
+
+        // ===== Header =====
+        CellStyle headerStyle = workbook.createCellStyle();
+        Font headerFont = workbook.createFont();
+        headerFont.setBold(true);
+        headerFont.setColor(IndexedColors.WHITE.getIndex());
+        headerStyle.setFont(headerFont);
+        headerStyle.setFillForegroundColor(IndexedColors.TEAL.getIndex());
+        headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        headerStyle.setAlignment(HorizontalAlignment.CENTER);
+
+        Row headerRow = sheet.createRow(3);
+        headerRow.setHeightInPoints(28);
+        String[] cols = {"Código", "Nombre", "Tipo", "Stock Total", "Mínimo", "Estado Stock"};
+        for (int i = 0; i < cols.length; i++) {
+            Cell cell = headerRow.createCell(i);
+            cell.setCellValue(cols[i]);
+            cell.setCellStyle(headerStyle);
+        }
+
+        // ===== Data =====
+        CellStyle dataStyle = workbook.createCellStyle();
+        dataStyle.setBorderBottom(BorderStyle.THIN);
+        dataStyle.setBorderTop(BorderStyle.THIN);
+        dataStyle.setBorderLeft(BorderStyle.THIN);
+        dataStyle.setBorderRight(BorderStyle.THIN);
+
+        CellStyle altStyle = workbook.createCellStyle();
+        altStyle.cloneStyleFrom(dataStyle);
+        altStyle.setFillForegroundColor(IndexedColors.LIGHT_TURQUOISE.getIndex());
+        altStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+
+        int rowIdx = 4;
+        for (Medicamento med : medicamentos) {
+            Row row = sheet.createRow(rowIdx);
+            CellStyle s = (rowIdx % 2 == 0) ? altStyle : dataStyle;
+
+            Cell c0 = row.createCell(0); c0.setCellValue(med.getCodigo() != null ? med.getCodigo() : ""); c0.setCellStyle(s);
+            Cell c1 = row.createCell(1); c1.setCellValue(med.getNombre() != null ? med.getNombre() : ""); c1.setCellStyle(s);
+            Cell c2 = row.createCell(2); c2.setCellValue(med.getTipo() != null ? med.getTipo().getNombre() : "—"); c2.setCellStyle(s);
+            Cell c3 = row.createCell(3); c3.setCellValue(med.getStockTotal()); c3.setCellStyle(s);
+            Cell c4 = row.createCell(4); c4.setCellValue(med.getMinimo() != null ? med.getMinimo() : 0); c4.setCellStyle(s);
+            Cell c5 = row.createCell(5); c5.setCellValue(med.isStockBajo() ? "⚠️ BAJO" : "✅ OK"); c5.setCellStyle(s);
+
+            rowIdx++;
+        }
+
+        for (int i = 0; i < cols.length; i++) {
+            sheet.autoSizeColumn(i);
+            sheet.setColumnWidth(i, Math.max(sheet.getColumnWidth(i), 3500));
+        }
+
+        workbook.write(response.getOutputStream());
+        workbook.close();
     }
 }
