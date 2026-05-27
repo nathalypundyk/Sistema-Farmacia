@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout/main :: head('Gestión de Depósitos')}"></head>
+<body>
+    <style>
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
+        }
+
+        .modal-content {
+            background-color: var(--white);
+            margin: 8% auto;
+            padding: 30px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        .close {
+            color: var(--text-secondary);
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close:hover {
+            color: var(--text-primary);
+        }
+    </style>
+
+    <aside th:replace="~{layout/main :: sidebar('depositos')}"></aside>
+
+    <main class="main-content">
+        <header th:replace="~{layout/main :: header('Gestión de Depósitos')}"></header>
+
+        <div class="content-area">
+            <div class="card" style="margin-bottom: 24px; padding: 20px; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h2 style="font-size: 1.25rem; font-weight: 600;">Depósitos Registrados</h2>
+                    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 4px;">Administra las ubicaciones de almacenamiento de la farmacia.</p>
+                </div>
+                <button class="btn btn-primary" onclick="openModal()" style="display: flex; align-items: center; gap: 8px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Agregar Depósito
+                </button>
+            </div>
+
+            <div class="card" style="padding: 0;">
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Nombre</th>
+                                <th>Ubicación</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="dep : ${depositos}">
+                                <td>
+                                    <span class="badge" style="background: #e2e8f0; color: #475569;" th:text="${dep.id}">1</span>
+                                </td>
+                                <td>
+                                    <span style="font-weight: 500;" th:text="${dep.nombre}">Nombre</span>
+                                </td>
+                                <td th:text="${dep.ubicacion != null ? dep.ubicacion : '-'}">Ubicación</td>
+                                <td>
+                                    <button class="btn" style="padding: 6px; background: #f1f5f9; color: #3b82f6;">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr th:if="${#lists.isEmpty(depositos)}">
+                                <td colspan="4" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                                    No hay depósitos registrados en el sistema.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal Agregar Depósito -->
+    <div id="addDepositoModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h2 style="margin-bottom: 24px; font-size: 1.5rem;">Agregar Nuevo Depósito</h2>
+
+            <form th:action="@{/depositos/guardar}" method="post" th:object="${nuevoDeposito}">
+                <div class="form-group">
+                    <label for="nombre">Nombre del Depósito *</label>
+                    <input type="text" id="nombre" name="nombre" class="form-control" placeholder="Ej: Depósito Central" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="ubicacion">Ubicación</label>
+                    <input type="text" id="ubicacion" name="ubicacion" class="form-control" placeholder="Ej: Planta Baja, Ala Sur">
+                </div>
+
+                <div style="margin-top: 30px; display: flex; justify-content: flex-end; gap: 12px;">
+                    <button type="button" class="btn" style="background: #f1f5f9; color: #475569;" onclick="closeModal()">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Depósito</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const modal = document.getElementById("addDepositoModal");
+
+        function openModal() {
+            modal.style.display = "block";
+        }
+
+        function closeModal() {
+            modal.style.display = "none";
+        }
+
+        window.onclick = function(event) {
+            if (event.target == modal) {
+                closeModal();
+            }
+        }
+    </script>
+</body>
+</html>

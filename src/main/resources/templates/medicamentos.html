@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout/main :: head('Gestión de Productos')}"></head>
+<body>
+    <style>
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
+        }
+
+        .modal-content {
+            background-color: var(--white);
+            margin: 5% auto;
+            padding: 30px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 600px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        .close {
+            color: var(--text-secondary);
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close:hover {
+            color: var(--text-main);
+        }
+        
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        .form-group.full-width {
+            grid-column: span 2;
+        }
+    </style>
+
+    <aside th:replace="~{layout/main :: sidebar('medicamentos')}"></aside>
+
+    <main class="main-content">
+        <header th:replace="~{layout/main :: header('Gestión de Productos')}"></header>
+
+            <div class="content-area">
+                <div class="card" style="margin-bottom: 24px; padding: 20px; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <h2 style="font-size: 1.25rem; font-weight: 600;">Catálogo de Medicamentos</h2>
+                        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 4px;">Administra los productos disponibles en la farmacia.</p>
+                    </div>
+                    <button class="btn btn-primary" onclick="openModal()" style="display: flex; align-items: center; gap: 8px;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        Agregar Producto
+                    </button>
+                </div>
+
+                <div class="card" style="padding: 0;">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Nombre</th>
+                                    <th>Tipo</th>
+                                    <th>Presentación</th>
+                                    <th>Stock Min.</th>
+                                    <th>Prioridad</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="med : ${medicamentos}">
+                                    <td>
+                                        <span class="badge" style="background: #e2e8f0; color: #475569;" th:text="${med.codigo}">COD</span>
+                                    </td>
+                                    <td>
+                                        <span style="font-weight: 500;" th:text="${med.nombre}">Nombre</span>
+                                        <span th:if="${med.esLasa}" class="badge badge-warning" style="margin-left: 8px; font-size: 0.7rem;">LASA</span>
+                                    </td>
+                                    <td th:text="${med.tipo != null ? med.tipo.nombre : '-'}">Tipo</td>
+                                    <td th:text="${med.presentacion != null ? med.presentacion.nombre : '-'}">Pres</td>
+                                    <td th:text="${med.minimo != null ? med.minimo : '0'}">0</td>
+                                    <td>
+                                        <span th:if="${med.esPrioridad}" class="badge badge-success">Alta</span>
+                                        <span th:unless="${med.esPrioridad}" class="badge" style="background: #f1f5f9; color: #64748b;">Normal</span>
+                                    </td>
+                                    <td>
+                                        <button class="btn" style="padding: 6px; background: #f1f5f9; color: #3b82f6;">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                        </button>
+                                    </td>
+                                </tr>
+                                <tr th:if="${#lists.isEmpty(medicamentos)}">
+                                    <td colspan="7" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                                        No hay productos registrados en el sistema.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+    <!-- Modal Agregar Producto -->
+    <div id="addProductModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h2 style="margin-bottom: 24px; font-size: 1.5rem;">Agregar Nuevo Producto</h2>
+            
+            <form th:action="@{/medicamentos/guardar}" method="post" th:object="${nuevoMedicamento}">
+                <div class="form-grid">
+                    <div class="form-group full-width">
+                        <label for="nombre">Nombre del Producto / Medicamento *</label>
+                        <input type="text" id="nombre" name="nombre" class="form-control" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="codigo">Código (Opcional)</label>
+                        <input type="text" id="codigo" name="codigo" class="form-control" placeholder="Autogenerado si está vacío">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="tipo">Tipo de Medicamento *</label>
+                        <select id="tipo" name="tipo" class="form-control" required>
+                            <option value="">Seleccione un tipo</option>
+                            <option th:each="t : ${tipos}" th:value="${t.id}" th:text="${t.nombre}"></option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="presentacion">Presentación *</label>
+                        <select id="presentacion" name="presentacion" class="form-control" required>
+                            <option value="">Seleccione presentación</option>
+                            <option th:each="p : ${presentaciones}" th:value="${p.id}" th:text="${p.nombre}"></option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="minimo">Stock Mínimo</label>
+                        <input type="number" id="minimo" name="minimo" class="form-control" min="0" value="0">
+                    </div>
+
+                    <div class="form-group full-width" style="display: flex; gap: 20px; margin-top: 10px;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: normal;">
+                            <input type="checkbox" name="esPrioridad" value="true"> Es Prioridad
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: normal;">
+                            <input type="checkbox" name="esLasa" value="true"> Medicamento LASA
+                        </label>
+                    </div>
+                </div>
+
+                <div style="margin-top: 30px; display: flex; justify-content: flex-end; gap: 12px;">
+                    <button type="button" class="btn" style="background: #f1f5f9; color: #475569;" onclick="closeModal()">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Producto</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const modal = document.getElementById("addProductModal");
+        
+        function openModal() {
+            modal.style.display = "block";
+        }
+        
+        function closeModal() {
+            modal.style.display = "none";
+        }
+        
+        window.onclick = function(event) {
+            if (event.target == modal) {
+                closeModal();
+            }
+        }
+    </script>
+</body>
+</html>

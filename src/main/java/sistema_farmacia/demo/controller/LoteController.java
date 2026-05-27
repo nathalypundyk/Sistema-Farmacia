@@ -25,12 +25,18 @@ public class LoteController {
     private DepositoRepository depositoRepository;
 
     @GetMapping
-    public String listarLotes(Model model) {
+    public String listarLotes(@RequestParam(required = false) String filtro, Model model) {
         List<Lote> lotes = loteRepository.findAll();
+        if ("poco_stock".equals(filtro)) {
+            lotes = lotes.stream()
+                .filter(l -> l.getMedicamento() != null && l.getMedicamento().isStockBajo())
+                .toList();
+        }
         model.addAttribute("lotes", lotes);
         model.addAttribute("medicamentos", medicamentoRepository.findAll());
         model.addAttribute("depositos", depositoRepository.findAll());
         model.addAttribute("activePage", "lotes");
+        model.addAttribute("filtroActual", filtro);
         return "lotes";
     }
 
