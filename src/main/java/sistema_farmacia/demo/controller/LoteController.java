@@ -49,9 +49,13 @@ public class LoteController {
         return "redirect:/lotes?success";
     }
 
-    @PostMapping("/delete")
-    public String eliminarLote(@RequestParam Long id) {
-        loteRepository.deleteById(id);
-        return "redirect:/lotes?success";
+    @GetMapping("/eliminar/{id}")
+    public String eliminarLote(@PathVariable Long id) {
+        try {
+            loteRepository.deleteById(id);
+            return "redirect:/lotes?success";
+        } catch (Exception e) {
+            return "redirect:/lotes?error=No se puede eliminar el lote porque tiene registros asociados.";
+        }
     }
 }

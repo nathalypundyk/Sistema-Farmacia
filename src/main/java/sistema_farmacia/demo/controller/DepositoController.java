@@ -34,4 +34,14 @@ public class DepositoController {
             return "redirect:/depositos?error=" + e.getMessage();
         }
     }
+
+    @GetMapping("/eliminar/{id}")
+    public String eliminarDeposito(@org.springframework.web.bind.annotation.PathVariable Long id) {
+        try {
+            depositoRepository.deleteById(id);
+            return "redirect:/depositos?success";
+        } catch (Exception e) {
+            return "redirect:/depositos?error=No se puede eliminar el depósito porque tiene registros asociados.";
+        }
+    }
 }

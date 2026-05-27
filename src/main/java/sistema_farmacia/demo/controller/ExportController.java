@@ -340,4 +340,97 @@ public class ExportController {
         workbook.write(response.getOutputStream());
         workbook.close();
     }
+
+    @Autowired
+    private sistema_farmacia.demo.repository.SalidaRepository salidaRepo;
+
+    @GetMapping("/export/salidas")
+    public void exportSalidasExcel(@RequestParam(required = false) String filtro, HttpServletResponse response) throws Exception {
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        response.setHeader("Content-Disposition", "attachment; filename=salidas_farmacia.xlsx");
+
+        List<sistema_farmacia.demo.model.Salida> salidas = salidaRepo.findAll();
+        java.time.LocalDate now = java.time.LocalDate.now();
+        
+        if ("hoy".equals(filtro)) {
+            salidas = salidas.stream()
+                .filter(s -> s.getFechaSalida() != null && s.getFechaSalida().equals(now))
+                .toList();
+        } else if ("mes".equals(filtro)) {
+            salidas = salidas.stream()
+                .filter(s -> s.getFechaSalida() != null && s.getFechaSalida().getMonth() == now.getMonth() && s.getFechaSalida().getYear() == now.getYear())
+                .toList();
+        }
+
+        Workbook workbook = new XSSFWorkbook();
+        Sheet sheet = workbook.createSheet("Salidas");
+
+        // ===== Title =====
+        CellStyle titleStyle = workbook.createCellStyle();
+        Font titleFont = workbook.createFont();
+        titleFont.setBold(true);
+        titleFont.setFontHeightInPoints((short) 16);
+        titleFont.setColor(IndexedColors.WHITE.getIndex());
+        titleStyle.setFont(titleFont);
+        titleStyle.setFillForegroundColor(IndexedColors.DARK_BLUE.getIndex());
+        titleStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        titleStyle.setAlignment(HorizontalAlignment.CENTER);
+
+        Row titleRow = sheet.createRow(0);
+        titleRow.setHeightInPoints(40);
+        Cell titleCell = titleRow.createCell(0);
+        titleCell.setCellValue("📤 Reporte de Salidas - HGS Pharma");
+        titleCell.setCellStyle(titleStyle);
+        sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 5));
+
+        // ===== Header =====
+        CellStyle headerStyle = workbook.createCellStyle();
+        Font headerFont = workbook.createFont();
+        headerFont.setBold(true);
+        headerFont.setColor(IndexedColors.WHITE.getIndex());
+        headerStyle.setFont(headerFont);
+        headerStyle.setFillForegroundColor(IndexedColors.ROYAL_BLUE.getIndex());
+        headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        headerStyle.setAlignment(HorizontalAlignment.CENTER);
+
+        Row headerRow = sheet.createRow(2);
+        headerRow.setHeightInPoints(28);
+        String[] cols = {"ID", "Medicamento", "Lote", "Cantidad", "Destino", "Fecha Salida"};
+        for (int i = 0; i < cols.length; i++) {
+            Cell cell = headerRow.createCell(i);
+            cell.setCellValue(cols[i]);
+            cell.setCellStyle(headerStyle);
+        }
+
+        // ===== Data =====
+        CellStyle dataStyle = workbook.createCellStyle();
+        dataStyle.setBorderBottom(BorderStyle.THIN);
+        dataStyle.setBorderTop(BorderStyle.THIN);
+        dataStyle.setBorderLeft(BorderStyle.THIN);
+        dataStyle.setBorderRight(BorderStyle.THIN);
+
+        DateTimeFormatter dateFmt = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
+        int rowIdx = 3;
+        for (sistema_farmacia.demo.model.Salida sal : salidas) {
+            Row row = sheet.createRow(rowIdx);
+
+            Cell c0 = row.createCell(0); c0.setCellValue(sal.getId()); c0.setCellStyle(dataStyle);
+            Cell c1 = row.createCell(1); c1.setCellValue(sal.getMedicamento() != null ? sal.getMedicamento().getNombre() : "—"); c1.setCellStyle(dataStyle);
+            Cell c2 = row.createCell(2); c2.setCellValue(sal.getLote() != null ? sal.getLote().getNroLote() : "—"); c2.setCellStyle(dataStyle);
+            Cell c3 = row.createCell(3); c3.setCellValue(sal.getCantidad() != null ? sal.getCantidad() : 0); c3.setCellStyle(dataStyle);
+            Cell c4 = row.createCell(4); c4.setCellValue(sal.getDestino() != null ? sal.getDestino() : ""); c4.setCellStyle(dataStyle);
+            Cell c5 = row.createCell(5); c5.setCellValue(sal.getFechaSalida() != null ? sal.getFechaSalida().format(dateFmt) : ""); c5.setCellStyle(dataStyle);
+
+            rowIdx++;
+        }
+
+        for (int i = 0; i < cols.length; i++) {
+            sheet.autoSizeColumn(i);
+            sheet.setColumnWidth(i, Math.max(sheet.getColumnWidth(i), 3500));
+        }
+
+        workbook.write(response.getOutputStream());
+        workbook.close();
+    }
 }

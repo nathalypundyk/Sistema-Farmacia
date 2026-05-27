@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout/main :: head('Salidas de Medicamentos')}"></head>
+<body>
+    <style>
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
+        }
+        .modal-content {
+            background-color: var(--white);
+            margin: 8% auto;
+            padding: 30px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 600px;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+        }
+        .close {color: var(--text-secondary);float: right;font-size: 28px;font-weight: bold;cursor: pointer;}
+        .close:hover {color: var(--text-primary);}
+    </style>
+
+    <aside th:replace="~{layout/main :: sidebar('salidas')}"></aside>
+
+    <main class="main-content">
+        <header th:replace="~{layout/main :: header('Salidas de Medicamentos')}"></header>
+        <div class="content-area">
+            <div class="card" style="margin-bottom:24px;padding:20px;display:flex;justify-content:space-between;align-items:center;">
+                <div>
+                    <h2 style="font-size:1.25rem;font-weight:600;">Salidas de Medicamentos</h2>
+                    <p style="color:var(--text-secondary);font-size:0.9rem;margin-top:4px;">Registra la dispensación de medicamentos desde un lote.</p>
+                </div>
+                <div style="display:flex; gap:12px; align-items:center;">
+                    <form th:action="@{/salidas}" method="get" style="display:flex; gap:8px;">
+                        <select name="filtro" class="form-control" style="padding:6px; min-width:120px;" onchange="this.form.submit()">
+                            <option value="todos" th:selected="${filtro == null || filtro == 'todos'}">Todos los días</option>
+                            <option value="hoy" th:selected="${filtro == 'hoy'}">Solo Hoy</option>
+                            <option value="mes" th:selected="${filtro == 'mes'}">Este Mes</option>
+                        </select>
+                    </form>
+                    
+                    <a th:href="@{/export/salidas(filtro=${filtro})}" class="btn" style="background:#10b981;color:white;display:flex;align-items:center;gap:8px;text-decoration:none;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                        Excel
+                    </a>
+                    
+                    <button class="btn btn-primary" onclick="openModal()" style="display:flex;align-items:center;gap:8px;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        Registrar Salida
+                    </button>
+                </div>
+            </div>
+
+            <div th:if="${param.success}" class="card" style="margin-bottom:24px;padding:15px;background-color:#dcfce7;color:#166534;border:1px solid #bbf7d0;">
+                Operación realizada con éxito.
+            </div>
+            <div th:if="${param.error}" class="card" style="margin-bottom:24px;padding:15px;background-color:#fee2e2;color:#991b1b;border:1px solid #fecaca;">
+                <span th:text="${param.error}">Ha ocurrido un error.</span>
+            </div>
+
+            <div class="card" style="padding:0;">
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Medicamento</th>
+                                <th>Lote</th>
+                                <th>Cantidad</th>
+                                <th>Destino</th>
+                                <th>Fecha Salida</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="sal : ${salidas}">
+                                <td th:text="${sal.id}">1</td>
+                                <td th:text="${sal.medicamento != null ? sal.medicamento.nombre : '-'}">Medicamento</td>
+                                <td th:text="${sal.lote != null ? sal.lote.nroLote : '-'}">Lote</td>
+                                <td th:text="${sal.cantidad}">0</td>
+                                <td th:text="${sal.destino}">Destino</td>
+                                <td th:text="${#temporals.format(sal.fechaSalida,'dd/MM/yyyy')}">01/01/2025</td>
+                                <td style="display:flex;gap:8px;justify-content:center;">
+                                    <a th:href="@{/salidas/eliminar/{id}(id=${sal.id})}" class="btn" style="padding:6px;background:#fee2e2;color:#ef4444;" title="Eliminar" onclick="return confirm('¿Estás seguro de que deseas eliminar esta salida? (NOTA: El stock no se devolverá automáticamente al lote)');">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                    </a>
+                                </td>
+                            </tr>
+                            <tr th:if="${#lists.isEmpty(salidas)}">
+                                <td colspan="7" style="text-align:center;padding:40px;color:var(--text-secondary);">No hay salidas registradas.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal Registro Salida -->
+    <div id="addSalidaModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h2 style="margin-bottom:24px;font-size:1.5rem;">Registrar Salida</h2>
+            <form th:action="@{/salidas/guardar}" method="post" th:object="${nuevaSalida}">
+                <div class="form-group">
+                    <label for="medicamentoId">Medicamento *</label>
+                    <select id="medicamentoId" name="medicamento.id" class="form-control" required>
+                        <option value="">Seleccione...</option>
+                        <option th:each="m : ${medicamentos}" th:value="${m.id}" th:text="${m.nombre}"></option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="loteId">Lote *</label>
+                    <select id="loteId" name="lote.id" class="form-control" required>
+                        <option value="">Seleccione...</option>
+                        <option th:each="l : ${lotes}" th:value="${l.id}" th:text="${l.nroLote}"></option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="cantidad">Cantidad *</label>
+                    <input type="number" id="cantidad" name="cantidad" class="form-control" min="1" required />
+                </div>
+                <div class="form-group">
+                    <label for="destino">Destino (Dónde han ido) *</label>
+                    <input type="text" id="destino" name="destino" class="form-control" placeholder="Ej: Consultorio 1, Paciente X, Descarte..." required />
+                </div>
+                <div class="form-group">
+                    <label for="fechaSalida">Fecha Salida *</label>
+                    <input type="date" id="fechaSalida" name="fechaSalida" class="form-control" required />
+                </div>
+                <div style="margin-top:30px;display:flex;justify-content:flex-end;gap:12px;">
+                    <button type="button" class="btn" style="background:#f1f5f9;color:#475569;" onclick="closeModal()">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Salida</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const modal = document.getElementById('addSalidaModal');
+        function openModal(){modal.style.display='block';}
+        function closeModal(){modal.style.display='none';}
+        window.onclick = function(event){if(event.target==modal){closeModal();}}
+    </script>
+</body>
+</html>

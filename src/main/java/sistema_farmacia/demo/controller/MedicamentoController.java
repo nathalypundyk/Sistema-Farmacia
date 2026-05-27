@@ -48,4 +48,14 @@ public class MedicamentoController {
             return "redirect:/medicamentos?error=" + e.getMessage();
         }
     }
+
+    @GetMapping("/eliminar/{id}")
+    public String eliminarMedicamento(@org.springframework.web.bind.annotation.PathVariable Long id) {
+        try {
+            medicamentoRepository.deleteById(id);
+            return "redirect:/medicamentos?success";
+        } catch (Exception e) {
+            return "redirect:/medicamentos?error=No se puede eliminar el producto porque tiene lotes o registros asociados.";
+        }
+    }
 }

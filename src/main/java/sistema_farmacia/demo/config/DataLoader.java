@@ -10,7 +10,7 @@ import sistema_farmacia.demo.repository.*;
 import java.time.LocalDate;
 import java.util.Set;
 
-@Component
+// @Component
 public class DataLoader implements CommandLineRunner {
 
     @Autowired private UsuarioRepository usuarioRepo;
