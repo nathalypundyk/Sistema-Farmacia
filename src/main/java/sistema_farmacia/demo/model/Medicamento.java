@@ -24,6 +24,8 @@ public class Medicamento {
 
     private String nombre;
 
+    private String concentracion;
+
     @Builder.Default
     private Boolean esPrioridad = false;
 
@@ -85,5 +87,16 @@ public class Medicamento {
             lote.getFechaVencimiento().isAfter(hoy) &&
             lote.getFechaVencimiento().isBefore(limite)
         );
+    }
+
+    public java.util.List<Lote> getLotesProximosAVencer() {
+        if (lotes == null) return new ArrayList<>();
+        LocalDate hoy = LocalDate.now();
+        LocalDate limite = hoy.plusDays(30);
+        return lotes.stream()
+            .filter(l -> l.getFechaVencimiento() != null &&
+                l.getFechaVencimiento().isAfter(hoy) &&
+                l.getFechaVencimiento().isBefore(limite))
+            .collect(java.util.stream.Collectors.toList());
     }
 }

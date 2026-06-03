@@ -24,7 +24,7 @@ public class SalidaController {
     public String listar(@RequestParam(required = false) String filtro, Model model) {
         java.util.List<Salida> salidas = salidaRepository.findAll();
         java.time.LocalDate now = java.time.LocalDate.now();
-        
+
         if ("hoy".equals(filtro)) {
             salidas = salidas.stream()
                 .filter(s -> s.getFechaSalida() != null && s.getFechaSalida().equals(now))
@@ -34,7 +34,7 @@ public class SalidaController {
                 .filter(s -> s.getFechaSalida() != null && s.getFechaSalida().getMonth() == now.getMonth() && s.getFechaSalida().getYear() == now.getYear())
                 .toList();
         }
-        
+
         model.addAttribute("activePage", "salidas");
         model.addAttribute("salidas", salidas);
         model.addAttribute("filtro", filtro);
@@ -49,16 +49,14 @@ public class SalidaController {
         try {
             sistema_farmacia.demo.model.Lote lote = loteRepository.findById(salida.getLote().getId())
                 .orElseThrow(() -> new RuntimeException("Lote no encontrado"));
-                
+
             if (lote.getCantidadDisponible() < salida.getCantidad()) {
                 throw new RuntimeException("Stock insuficiente en el lote seleccionado (Disponible: " + lote.getCantidadDisponible() + ")");
             }
-            
-            // Descontar stock
+
             lote.setCantidadDisponible(lote.getCantidadDisponible() - salida.getCantidad());
             loteRepository.save(lote);
-            
-            // Guardar salida
+
             salidaRepository.save(salida);
             return "redirect:/salidas?success";
         } catch (Exception e) {

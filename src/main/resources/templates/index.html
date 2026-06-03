@@ -10,48 +10,108 @@
 
         <h2 class="section-title">🚨 Estado Crítico del Sistema</h2>
         <section class="stats-grid">
-            <div class="stat-card warning">
+            <a href="#alertas" style="text-decoration: none; color: inherit;">
+            <div class="stat-card warning" style="cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;"
+                 onmouseover="this.style.transform='translateY(-3px)';this.style.boxShadow='0 8px 20px rgba(0,0,0,0.12)'"
+                 onmouseout="this.style.transform='';this.style.boxShadow=''">
+                <h3>Stock Crítico / Agotado</h3>
+                <div class="value" th:text="${cantidadCritico}">0</div>
+                <small>Medicamentos bajo el mínimo</small>
+            </div>
+            </a>
+            <a href="#vencer" style="text-decoration: none; color: inherit;">
+            <div class="stat-card danger" style="cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;"
+                 onmouseover="this.style.transform='translateY(-3px)';this.style.boxShadow='0 8px 20px rgba(0,0,0,0.12)'"
+                 onmouseout="this.style.transform='';this.style.boxShadow=''">
                 <h3>Alertas de Vencimiento</h3>
-                <div class="value" th:text="${cantidadVencer}">15</div>
-                <small>Lotes con vencimiento < 30 días</small>
+                <div class="value" th:text="${cantidadVencer}">0</div>
+                <small>Lotes con vencimiento &lt; 30 días</small>
             </div>
-            <div class="stat-card danger">
-                <h3>Stock Crítico Real</h3>
-                <div class="value" th:text="${cantidadCritico}">42</div>
-                <small>Medicamentos bajo el mínimo legal</small>
-            </div>
-            <div class="stat-card success">
-                <h3>Ajustes Realizados (24h)</h3>
-                <div class="value" th:text="${ajustesHoy}">3</div>
+            </a>
+            <a href="#auditoria" style="text-decoration: none; color: inherit;">
+            <div class="stat-card success" style="cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;"
+                 onmouseover="this.style.transform='translateY(-3px)';this.style.boxShadow='0 8px 20px rgba(0,0,0,0.12)'"
+                 onmouseout="this.style.transform='';this.style.boxShadow=''">
+                <h3>Ajustes Registrados</h3>
+                <div class="value" th:text="${ajustesHoy}">0</div>
                 <small>Revisiones y correcciones de stock</small>
             </div>
+            </a>
         </section>
 
-        <section class="alerts-section" style="margin-top: 32px;" th:if="${not #lists.isEmpty(medicamentosConAlerta)}">
-            <h2 class="section-title">⚠️ Alertas de Seguridad y Trazabilidad</h2>
-            <div style="display: grid; gap: 12px;">
-                <div th:each="med : ${medicamentosConAlerta}" class="alert-item" 
-                     th:style="'display: flex; align-items: center; justify-content: space-between; padding: 16px; border-radius: 12px; border-left: 4px solid ' + (${med.esLasa} ? '#f59e0b' : '#ef4444') + '; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1);'">
-                    <div>
-                        <span th:if="${med.esLasa}" class="badge badge-warning" style="margin-right: 8px;">LASA</span>
-                        <span th:if="${med.isStockBajo()}" class="badge badge-danger" style="margin-right: 8px;">STOCK BAJO</span>
-                        <strong th:text="${med.nombre}">Nombre</strong>
-                        <small th:text="' - ' + ${med.codigo}" style="color: var(--text-secondary);"></small>
-                        <p th:if="${med.esLasa}" style="margin: 4px 0 0; font-size: 0.85rem; color: #92400e;" 
-                           th:text="'Precaución: Similar a ' + ${med.similarA}"></p>
+        <!-- SECCIÓN 1: STOCK CRÍTICO / AGOTADO -->
+        <section id="alertas" style="margin-top: 8px;" th:if="${not #lists.isEmpty(medicamentosStockBajo)}">
+            <h2 class="section-title">📦 Stock Crítico / Agotado</h2>
+            <div style="display: grid; gap: 10px;">
+                <div th:each="med : ${medicamentosStockBajo}"
+                     th:style="'display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-radius: 12px; background: white; border-left: 4px solid ' + (${med.stockTotal == 0} ? '#ef4444' : '#f59e0b') + '; box-shadow: 0 1px 4px rgba(0,0,0,0.08);'">
+                    <div style="min-width: 0;">
+                        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 5px;">
+                            <span th:if="${med.stockTotal == 0}"
+                                  style="background:#fee2e2;color:#991b1b;padding:3px 10px;border-radius:9999px;font-size:0.72rem;font-weight:700;">AGOTADO</span>
+                            <span th:if="${med.stockTotal > 0}"
+                                  style="background:#ffedd5;color:#9a3412;padding:3px 10px;border-radius:9999px;font-size:0.72rem;font-weight:700;">STOCK BAJO</span>
+                            <strong style="font-size: 1rem;" th:text="${med.nombre}">Nombre</strong>
+                            <span style="color: var(--text-secondary); font-size: 0.85rem;" th:text="${med.concentracion}"></span>
+                            <span style="background:#e2e8f0;color:#475569;padding:2px 8px;border-radius:6px;font-family:monospace;font-size:0.75rem;" th:text="${med.codigo}">COD</span>
+                        </div>
+                        <div style="font-size: 0.83rem; color: var(--text-secondary); display: flex; gap: 12px; flex-wrap: wrap;">
+                            <span th:if="${med.tipo != null}" th:text="'Tipo: ' + ${med.tipo.nombre}"></span>
+                            <span th:if="${med.presentacion != null}" th:text="'Presentación: ' + ${med.presentacion.nombre}"></span>
+                            <span th:if="${med.esPrioridad}" style="color: #7c3aed; font-weight: 600;">🔒 Controlado</span>
+                        </div>
                     </div>
-                    <div style="text-align: right;">
-                        <span th:text="${med.stockTotal} + ' unidades'" style="font-weight: 600;"></span>
-                        <br>
-                        <small th:text="'Mínimo: ' + ${med.minimoAjustado}" style="color: var(--text-secondary);"></small>
+                    <div style="text-align: right; flex-shrink: 0; margin-left: 20px;">
+                        <div th:style="'font-size: 1.8rem; font-weight: 700; line-height: 1; color: ' + (${med.stockTotal == 0} ? '#ef4444' : '#f59e0b')">
+                            <span th:text="${med.stockTotal}">0</span>
+                            <span style="font-size: 0.75rem; font-weight: 400; color: var(--text-secondary);"> uds</span>
+                        </div>
+                        <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px;">
+                            Mínimo: <strong th:text="${med.minimoAjustado}">0</strong>
+                        </div>
                     </div>
                 </div>
             </div>
         </section>
+        <div th:if="${#lists.isEmpty(medicamentosStockBajo)}" id="alertas"
+             style="margin-top: 8px; padding: 20px; background: #f0fdf4; border-radius: 12px; color: #166534; border: 1px solid #bbf7d0; font-size: 0.95rem;">
+            ✅ Todos los medicamentos tienen stock suficiente.
+        </div>
 
+        <!-- SECCIÓN 2: PRÓXIMOS A VENCER -->
+        <section id="vencer" style="margin-top: 28px;" th:if="${not #lists.isEmpty(medicamentosProximosVencer)}">
+            <h2 class="section-title">⏰ Próximos a Vencer (&lt; 30 días)</h2>
+            <div style="display: grid; gap: 10px;">
+                <div th:each="med : ${medicamentosProximosVencer}"
+                     style="padding: 16px 20px; border-radius: 12px; background: white; border-left: 4px solid #f59e0b; box-shadow: 0 1px 4px rgba(0,0,0,0.08);">
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;">
+                        <strong style="font-size: 1rem;" th:text="${med.nombre}">Nombre</strong>
+                        <span style="color: var(--text-secondary); font-size: 0.85rem;" th:text="${med.concentracion}"></span>
+                        <span style="background:#e2e8f0;color:#475569;padding:2px 8px;border-radius:6px;font-family:monospace;font-size:0.75rem;" th:text="${med.codigo}">COD</span>
+                        <span th:if="${med.tipo != null}" style="color: var(--text-secondary); font-size: 0.82rem;" th:text="${med.tipo.nombre}"></span>
+                    </div>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <div th:each="lote : ${med.lotesProximosAVencer}"
+                             th:style="'display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-radius: 8px; font-size: 0.85rem; border: 1px solid ' + (${lote.diasHastaVencimiento} < 15 ? '#fecaca' : '#fde68a') + '; background: ' + (${lote.diasHastaVencimiento} < 15 ? '#fef2f2' : '#fffbeb')">
+                            <span style="font-family: monospace; font-weight: 600;" th:text="${lote.nroLote}"></span>
+                            <span style="color: #94a3b8;">|</span>
+                            <span th:text="${#temporals.format(lote.fechaVencimiento, 'dd/MM/yyyy')}"></span>
+                            <span th:style="'font-weight: 700; color: ' + (${lote.diasHastaVencimiento} < 15 ? '#dc2626' : '#d97706')"
+                                  th:text="${lote.diasHastaVencimiento} + ' días'"></span>
+                            <span style="color: #94a3b8;">|</span>
+                            <span style="color: var(--text-secondary);" th:text="${lote.cantidadDisponible} + ' uds'"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <div th:if="${#lists.isEmpty(medicamentosProximosVencer)}" id="vencer"
+             style="margin-top: 28px; padding: 20px; background: #f0fdf4; border-radius: 12px; color: #166534; border: 1px solid #bbf7d0; font-size: 0.95rem;">
+            ✅ No hay lotes con vencimiento próximo en los próximos 30 días.
+        </div>
 
-
-        <div style="margin-top: 40px;">
+        <!-- AUDITORÍA -->
+        <div id="auditoria" style="margin-top: 32px;">
             <h2 class="section-title">📜 Registro de Auditoría (Acciones Sensibles)</h2>
             <div class="table-container">
                 <div class="table-header">
@@ -73,25 +133,27 @@
                             <td>
                                 <div style="display: flex; align-items: center; gap: 8px;">
                                     <div style="width: 24px; height: 24px; background: #e2e8f0; border-radius: 50%; font-size: 0.7rem; display: flex; align-items: center; justify-content: center;" th:text="${#strings.substring(audit.usuario, 0, 1)}">U</div>
-                                    <span th:text="${audit.usuario}">Admin_Sosa</span>
+                                    <span th:text="${audit.usuario}">Admin</span>
                                 </div>
                             </td>
-                            <td th:text="${audit.medicamentoNombre}">Ibuprofeno 600mg</td>
+                            <td th:text="${audit.medicamentoNombre}">Medicamento</td>
                             <td>
-                                <span th:text="${audit.accion}" class="badge" 
-                                      th:classappend="${audit.pinVerificado} ? 'badge-success' : 'badge-danger'">Ajuste -1 amp.</span>
+                                <span th:text="${audit.accion}" class="badge"
+                                      th:classappend="${audit.pinVerificado} ? 'badge-success' : 'badge-danger'">Ajuste</span>
                             </td>
                             <td>
                                 <span th:if="${audit.pinVerificado}" class="badge badge-success">✅ Verificado</span>
                                 <span th:if="${!audit.pinVerificado}" class="badge badge-danger">❌ Sin PIN</span>
                             </td>
                         </tr>
+                        <tr th:if="${#lists.isEmpty(auditorias)}">
+                            <td colspan="5" style="text-align: center; padding: 30px; color: var(--text-secondary);">No hay movimientos registrados aún.</td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
         </div>
     </main>
-
 
 </body>
 </html>

@@ -78,13 +78,67 @@ body {
 /* Sidebar Moderno */
 .sidebar {
     width: 260px;
+    min-width: 260px;
     background-color: var(--sidebar-bg);
     color: var(--white);
     padding: 24px;
     display: flex;
     flex-direction: column;
-    transition: all 0.3s ease;
+    transition: width 0.25s ease, min-width 0.25s ease, padding 0.25s ease;
+    overflow: hidden;
+    position: sticky;
+    top: 0;
+    height: 100vh;
 }
+
+.sidebar.collapsed {
+    width: 72px;
+    min-width: 72px;
+    padding: 24px 10px;
+}
+
+.sidebar-brand-text {
+    white-space: nowrap;
+    overflow: hidden;
+}
+.sidebar.collapsed .sidebar-brand-text { display: none; }
+
+.sidebar nav a .nav-text {
+    white-space: nowrap;
+    overflow: hidden;
+}
+.sidebar.collapsed nav a .nav-text { display: none; }
+.sidebar.collapsed nav a {
+    justify-content: center;
+    padding: 12px 8px;
+    gap: 0;
+}
+.sidebar.collapsed nav a:hover { background-color: var(--sidebar-hover); }
+
+.sidebar-toggle {
+    background: none;
+    border: none;
+    color: #64748b;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    transition: color 0.2s, background 0.2s;
+    margin-left: auto;
+}
+.sidebar-toggle:hover { color: #fff; background: var(--sidebar-hover); }
+.sidebar.collapsed .sidebar-toggle { margin-left: 0; margin-top: 4px; }
+
+.sidebar-brand {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 40px;
+    gap: 8px;
+}
+.sidebar.collapsed .sidebar-brand { flex-direction: column; gap: 10px; margin-bottom: 28px; }
 
 .sidebar h2 {
     font-size: 1.25rem;

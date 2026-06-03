@@ -31,4 +31,9 @@ public class Lote {
     @ManyToOne
     @JoinColumn(name = "deposito_id")
     private Deposito deposito;
+
+    public long getDiasHastaVencimiento() {
+        if (fechaVencimiento == null) return Long.MAX_VALUE;
+        return java.time.temporal.ChronoUnit.DAYS.between(java.time.LocalDate.now(), fechaVencimiento);
+    }
 }

@@ -31,16 +31,21 @@ public class DashboardController {
         long cantidadCritico = medicamentos.stream().filter(Medicamento::isStockBajo).count();
         long cantidadVencer = medicamentos.stream().filter(Medicamento::isProximoAVencer).count();
         
-        List<Medicamento> medicamentosConAlerta = medicamentos.stream()
-                .filter(m -> m.isStockBajo() || Boolean.TRUE.equals(m.getEsLasa()))
+        List<Medicamento> medicamentosStockBajo = medicamentos.stream()
+                .filter(Medicamento::isStockBajo)
                 .collect(Collectors.toList());
-        
+
+        List<Medicamento> medicamentosProximosVencer = medicamentos.stream()
+                .filter(Medicamento::isProximoAVencer)
+                .collect(Collectors.toList());
+
         model.addAttribute("medicamentos", medicamentos);
         model.addAttribute("cantidadCritico", cantidadCritico);
         model.addAttribute("cantidadVencer", cantidadVencer);
         model.addAttribute("ajustesHoy", auditoriaRepo.count());
         model.addAttribute("auditorias", auditoriaRepo.findAllByOrderByFechaDesc());
-        model.addAttribute("medicamentosConAlerta", medicamentosConAlerta);
+        model.addAttribute("medicamentosStockBajo", medicamentosStockBajo);
+        model.addAttribute("medicamentosProximosVencer", medicamentosProximosVencer);
         
         // Datos dinámicos para los gráficos
         model.addAttribute("consumoData", inventarioService.getConsumoUltimos7Dias());
