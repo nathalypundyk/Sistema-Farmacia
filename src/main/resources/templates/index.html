@@ -10,32 +10,42 @@
 
         <h2 class="section-title">🚨 Estado Crítico del Sistema</h2>
         <section class="stats-grid">
-            <a href="#alertas" style="text-decoration: none; color: inherit;">
-            <div class="stat-card warning" style="cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;"
-                 onmouseover="this.style.transform='translateY(-3px)';this.style.boxShadow='0 8px 20px rgba(0,0,0,0.12)'"
-                 onmouseout="this.style.transform='';this.style.boxShadow=''">
-                <h3>Stock Crítico / Agotado</h3>
-                <div class="value" th:text="${cantidadCritico}">0</div>
-                <small>Medicamentos bajo el mínimo</small>
-            </div>
+            <a href="#alertas" style="text-decoration: none; color: inherit; display: block;"
+               onmouseover="this.firstElementChild.style.transform='translateY(-3px)';this.firstElementChild.style.boxShadow='0 8px 20px rgba(0,0,0,0.12)'"
+               onmouseout="this.firstElementChild.style.transform='';this.firstElementChild.style.boxShadow=''"
+               onfocus="this.firstElementChild.style.transform='translateY(-3px)';this.firstElementChild.style.boxShadow='0 8px 20px rgba(0,0,0,0.12)'"
+               onblur="this.firstElementChild.style.transform='';this.firstElementChild.style.boxShadow=''">
+                <div class="stat-card warning" style="transition: transform 0.15s, box-shadow 0.15s;">
+                    <h3>Stock Crítico / Agotado</h3>
+                    <div class="value" th:text="${cantidadCritico}">0</div>
+                    <small>Medicamentos bajo el mínimo</small>
+                </div>
             </a>
-            <a href="#vencer" style="text-decoration: none; color: inherit;">
-            <div class="stat-card danger" style="cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;"
-                 onmouseover="this.style.transform='translateY(-3px)';this.style.boxShadow='0 8px 20px rgba(0,0,0,0.12)'"
-                 onmouseout="this.style.transform='';this.style.boxShadow=''">
-                <h3>Alertas de Vencimiento</h3>
-                <div class="value" th:text="${cantidadVencer}">0</div>
-                <small>Lotes con vencimiento &lt; 30 días</small>
-            </div>
+            <a href="#vencer" style="text-decoration: none; color: inherit; display: block;"
+               onmouseover="this.firstElementChild.style.transform='translateY(-3px)';this.firstElementChild.style.boxShadow='0 8px 20px rgba(0,0,0,0.12)'"
+               onmouseout="this.firstElementChild.style.transform='';this.firstElementChild.style.boxShadow=''"
+               onfocus="this.firstElementChild.style.transform='translateY(-3px)';this.firstElementChild.style.boxShadow='0 8px 20px rgba(0,0,0,0.12)'"
+               onblur="this.firstElementChild.style.transform='';this.firstElementChild.style.boxShadow=''">
+                <div class="stat-card danger" style="transition: transform 0.15s, box-shadow 0.15s;">
+                    <h3>Alertas de Vencimiento</h3>
+                    <div class="value" th:text="${cantidadVencer}">0</div>
+                    <small>Vencidos o próximos a vencer</small>
+                </div>
             </a>
-            <a href="#auditoria" style="text-decoration: none; color: inherit;">
-            <div class="stat-card success" style="cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;"
-                 onmouseover="this.style.transform='translateY(-3px)';this.style.boxShadow='0 8px 20px rgba(0,0,0,0.12)'"
-                 onmouseout="this.style.transform='';this.style.boxShadow=''">
-                <h3>Ajustes Registrados</h3>
-                <div class="value" th:text="${ajustesHoy}">0</div>
-                <small>Revisiones y correcciones de stock</small>
-            </div>
+            <a href="/auditoria" style="text-decoration: none; color: inherit; display: block;"
+               onmouseover="this.firstElementChild.style.transform='translateY(-3px)';this.firstElementChild.style.boxShadow='0 8px 20px rgba(0,0,0,0.12)'"
+               onmouseout="this.firstElementChild.style.transform='';this.firstElementChild.style.boxShadow=''"
+               onfocus="this.firstElementChild.style.transform='translateY(-3px)';this.firstElementChild.style.boxShadow='0 8px 20px rgba(0,0,0,0.12)'"
+               onblur="this.firstElementChild.style.transform='';this.firstElementChild.style.boxShadow=''">
+                <div class="stat-card success" style="transition: transform 0.15s, box-shadow 0.15s;">
+                    <h3>Última Importación</h3>
+                    <div class="value" th:if="${ultimaImportacion != null}"
+                         th:text="${#temporals.format(ultimaImportacion.fecha, 'dd/MM')}">—</div>
+                    <div class="value" th:if="${ultimaImportacion == null}" style="font-size: 1.2rem;">Sin datos</div>
+                    <small th:if="${ultimaImportacion != null}"
+                           th:text="'por ' + ${ultimaImportacion.usuario} + ' a las ' + ${#temporals.format(ultimaImportacion.fecha, 'HH:mm')}">—</small>
+                    <small th:if="${ultimaImportacion == null}">Aún no se realizó ninguna importación</small>
+                </div>
             </a>
         </section>
 
@@ -53,11 +63,16 @@
                                   style="background:#ffedd5;color:#9a3412;padding:3px 10px;border-radius:9999px;font-size:0.72rem;font-weight:700;">STOCK BAJO</span>
                             <strong style="font-size: 1rem;" th:text="${med.nombre}">Nombre</strong>
                             <span style="color: var(--text-secondary); font-size: 0.85rem;" th:text="${med.concentracion}"></span>
-                            <span style="background:#e2e8f0;color:#475569;padding:2px 8px;border-radius:6px;font-family:monospace;font-size:0.75rem;" th:text="${med.codigo}">COD</span>
+                            <span th:if="${med.codigoSiciap != null}"
+                                  style="background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:6px;font-family:monospace;font-size:0.75rem;"
+                                  th:text="${med.codigoSiciap}">SICIAP</span>
+                            <span th:if="${med.codigoSiciap == null and med.codigo != null}"
+                                  style="background:#e2e8f0;color:#475569;padding:2px 8px;border-radius:6px;font-family:monospace;font-size:0.75rem;"
+                                  th:text="${med.codigo}">COD</span>
                         </div>
                         <div style="font-size: 0.83rem; color: var(--text-secondary); display: flex; gap: 12px; flex-wrap: wrap;">
-                            <span th:if="${med.tipo != null}" th:text="'Tipo: ' + ${med.tipo.nombre}"></span>
-                            <span th:if="${med.presentacion != null}" th:text="'Presentación: ' + ${med.presentacion.nombre}"></span>
+                            <span th:if="${med.formaFarmaceutica != null and !#strings.isEmpty(med.formaFarmaceutica)}" th:text="${med.formaFarmaceutica}"></span>
+                            <span th:if="${med.presentacion != null and !#strings.isEmpty(med.presentacion)}" th:text="${med.presentacion}"></span>
                             <span th:if="${med.esPrioridad}" style="color: #7c3aed; font-weight: 600;">🔒 Controlado</span>
                         </div>
                     </div>
@@ -73,30 +88,39 @@
                 </div>
             </div>
         </section>
-        <div th:if="${#lists.isEmpty(medicamentosStockBajo)}" id="alertas"
+        <div th:if="${#lists.isEmpty(medicamentosStockBajo)}"
              style="margin-top: 8px; padding: 20px; background: #f0fdf4; border-radius: 12px; color: #166534; border: 1px solid #bbf7d0; font-size: 0.95rem;">
             ✅ Todos los medicamentos tienen stock suficiente.
         </div>
 
         <!-- SECCIÓN 2: PRÓXIMOS A VENCER -->
         <section id="vencer" style="margin-top: 28px;" th:if="${not #lists.isEmpty(medicamentosProximosVencer)}">
-            <h2 class="section-title">⏰ Próximos a Vencer (&lt; 30 días)</h2>
+            <h2 class="section-title">⏰ Alertas de Vencimiento</h2>
             <div style="display: grid; gap: 10px;">
                 <div th:each="med : ${medicamentosProximosVencer}"
                      style="padding: 16px 20px; border-radius: 12px; background: white; border-left: 4px solid #f59e0b; box-shadow: 0 1px 4px rgba(0,0,0,0.08);">
                     <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;">
                         <strong style="font-size: 1rem;" th:text="${med.nombre}">Nombre</strong>
                         <span style="color: var(--text-secondary); font-size: 0.85rem;" th:text="${med.concentracion}"></span>
-                        <span style="background:#e2e8f0;color:#475569;padding:2px 8px;border-radius:6px;font-family:monospace;font-size:0.75rem;" th:text="${med.codigo}">COD</span>
-                        <span th:if="${med.tipo != null}" style="color: var(--text-secondary); font-size: 0.82rem;" th:text="${med.tipo.nombre}"></span>
+                        <span th:if="${med.codigoSiciap != null}"
+                              style="background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:6px;font-family:monospace;font-size:0.75rem;"
+                              th:text="${med.codigoSiciap}">SICIAP</span>
+                        <span th:if="${med.codigoSiciap == null and med.codigo != null}"
+                              style="background:#e2e8f0;color:#475569;padding:2px 8px;border-radius:6px;font-family:monospace;font-size:0.75rem;"
+                              th:text="${med.codigo}">COD</span>
+                        <span th:if="${med.formaFarmaceutica != null and !#strings.isEmpty(med.formaFarmaceutica)}" style="color: var(--text-secondary); font-size: 0.82rem;" th:text="${med.formaFarmaceutica}"></span>
                     </div>
                     <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                         <div th:each="lote : ${med.lotesProximosAVencer}"
                              th:style="'display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-radius: 8px; font-size: 0.85rem; border: 1px solid ' + (${lote.diasHastaVencimiento} < 15 ? '#fecaca' : '#fde68a') + '; background: ' + (${lote.diasHastaVencimiento} < 15 ? '#fef2f2' : '#fffbeb')">
-                            <span style="font-family: monospace; font-weight: 600;" th:text="${lote.nroLote}"></span>
+                            <span style="background:#e2e8f0;color:#334155;padding:2px 7px;border-radius:5px;font-family:monospace;font-size:0.8rem;font-weight:600;"
+                                  th:text="${lote.nroLote != null ? lote.nroLote : '—'}">—</span>
                             <span style="color: #94a3b8;">|</span>
                             <span th:text="${#temporals.format(lote.fechaVencimiento, 'dd/MM/yyyy')}"></span>
-                            <span th:style="'font-weight: 700; color: ' + (${lote.diasHastaVencimiento} < 15 ? '#dc2626' : '#d97706')"
+                            <span th:if="${lote.diasHastaVencimiento < 0}"
+                                  style="font-weight: 700; color: #991b1b; background: #fee2e2; padding: 1px 7px; border-radius: 5px; font-size: 0.78rem;">VENCIDO</span>
+                            <span th:if="${lote.diasHastaVencimiento >= 0}"
+                                  th:style="'font-weight: 700; color: ' + (${lote.diasHastaVencimiento} < 15 ? '#dc2626' : '#d97706')"
                                   th:text="${lote.diasHastaVencimiento} + ' días'"></span>
                             <span style="color: #94a3b8;">|</span>
                             <span style="color: var(--text-secondary);" th:text="${lote.cantidadDisponible} + ' uds'"></span>
@@ -107,47 +131,43 @@
         </section>
         <div th:if="${#lists.isEmpty(medicamentosProximosVencer)}" id="vencer"
              style="margin-top: 28px; padding: 20px; background: #f0fdf4; border-radius: 12px; color: #166534; border: 1px solid #bbf7d0; font-size: 0.95rem;">
-            ✅ No hay lotes con vencimiento próximo en los próximos 30 días.
+            ✅ No hay lotes vencidos ni con vencimiento próximo.
         </div>
 
-        <!-- AUDITORÍA -->
-        <div id="auditoria" style="margin-top: 32px;">
-            <h2 class="section-title">📜 Registro de Auditoría (Acciones Sensibles)</h2>
+        <!-- IMPORTACIONES RECIENTES -->
+        <div style="margin-top: 32px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h2 class="section-title" style="margin: 0;">📥 Últimas Importaciones</h2>
+                <a href="/auditoria" style="font-size: 0.85rem; color: var(--accent); text-decoration: none; font-weight: 500;">Ver historial completo →</a>
+            </div>
             <div class="table-container">
-                <div class="table-header">
-                    <span style="font-weight: 600;">Últimos Movimientos</span>
-                </div>
                 <table>
                     <thead>
                         <tr>
-                            <th>Fecha</th>
+                            <th>Fecha y hora</th>
                             <th>Usuario</th>
-                            <th>Medicamento</th>
-                            <th>Acción / Motivo</th>
-                            <th>Estado PIN</th>
+                            <th style="text-align: center;">Tipo</th>
+                            <th style="text-align: center;">Aplicados</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr th:each="audit : ${auditorias}">
-                            <td th:text="${#temporals.format(audit.fecha, 'dd/MM HH:mm')}">01/05 14:30</td>
+                        <tr th:each="imp : ${importacionesRecientes}">
+                            <td th:text="${#temporals.format(imp.fecha, 'dd/MM/yyyy HH:mm')}">01/05 14:30</td>
                             <td>
                                 <div style="display: flex; align-items: center; gap: 8px;">
-                                    <div style="width: 24px; height: 24px; background: #e2e8f0; border-radius: 50%; font-size: 0.7rem; display: flex; align-items: center; justify-content: center;" th:text="${#strings.substring(audit.usuario, 0, 1)}">U</div>
-                                    <span th:text="${audit.usuario}">Admin</span>
+                                    <div style="width: 24px; height: 24px; background: linear-gradient(135deg,#3b82f6,#8b5cf6); border-radius: 50%; font-size: 0.7rem; display: flex; align-items: center; justify-content: center; color:white; font-weight:600;"
+                                         th:text="${#strings.substring(imp.usuario, 0, 1).toUpperCase()}">U</div>
+                                    <span th:text="${imp.usuario}">admin</span>
                                 </div>
                             </td>
-                            <td th:text="${audit.medicamentoNombre}">Medicamento</td>
-                            <td>
-                                <span th:text="${audit.accion}" class="badge"
-                                      th:classappend="${audit.pinVerificado} ? 'badge-success' : 'badge-danger'">Ajuste</span>
+                            <td style="text-align: center;">
+                                <span th:if="${imp.tipo == 'STOCK'}" class="badge" style="background:#dbeafe;color:#1d4ed8;font-weight:600;">📦 STOCK</span>
+                                <span th:if="${imp.tipo == 'IMI'}"   class="badge" style="background:#fef3c7;color:#92400e;font-weight:600;">🔖 IMI</span>
                             </td>
-                            <td>
-                                <span th:if="${audit.pinVerificado}" class="badge badge-success">✅ Verificado</span>
-                                <span th:if="${!audit.pinVerificado}" class="badge badge-danger">❌ Sin PIN</span>
-                            </td>
+                            <td style="text-align: center; font-weight: 600;" th:text="${imp.aplicados}">0</td>
                         </tr>
-                        <tr th:if="${#lists.isEmpty(auditorias)}">
-                            <td colspan="5" style="text-align: center; padding: 30px; color: var(--text-secondary);">No hay movimientos registrados aún.</td>
+                        <tr th:if="${#lists.isEmpty(importacionesRecientes)}">
+                            <td colspan="4" style="text-align: center; padding: 30px; color: var(--text-secondary);">No hay importaciones registradas aún.</td>
                         </tr>
                     </tbody>
                 </table>

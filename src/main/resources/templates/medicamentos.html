@@ -122,40 +122,41 @@
             </div>
 
             <!-- Filtros -->
-            <div class="filter-bar">
-                <!-- Búsqueda por nombre -->
+            <form id="filtroForm" method="get" action="/medicamentos" class="filter-bar">
+                <!-- Búsqueda por nombre (server-side con debounce) -->
                 <div style="position: relative;">
                     <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#94a3b8;" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                    <input type="text" id="buscarNombre" placeholder="Buscar medicamento..." style="padding-left: 32px;" oninput="filtrar()">
+                    <input type="text" id="buscarNombre" name="buscar"
+                           th:value="${buscar}" placeholder="Buscar medicamento..."
+                           style="padding-left: 32px;" autocomplete="off">
                 </div>
 
-                <!-- Estado de stock -->
-                <select id="filtroEstado" onchange="filtrar()">
+                <!-- Estado de stock (client-side, solo filtra en la página actual) -->
+                <select id="filtroEstado" onchange="filtrarEstado()" title="Filtra solo en la página actual">
                     <option value="">Todos los estados</option>
-                    <option value="ok">✅ Stock OK</option>
-                    <option value="critico">⚠️ Stock Crítico</option>
-                    <option value="agotado">🔴 Agotado</option>
+                    <option value="ok">Stock OK</option>
+                    <option value="critico">Stock Crítico</option>
+                    <option value="agotado">Agotado</option>
                 </select>
 
-                <!-- Tipo -->
-                <select id="filtroTipo" onchange="filtrar()">
-                    <option value="">Todos los tipos</option>
-                    <option th:each="t : ${tipos}" th:value="${t.nombre}" th:text="${t.nombre}"></option>
-                </select>
-
-                <!-- Checkboxes -->
+                <!-- Controlados (server-side) -->
                 <label>
-                    <input type="checkbox" id="soloPrioridad" onchange="filtrar()">
+                    <input type="checkbox" id="soloPrioridad" name="soloPrioridad" value="true"
+                           th:checked="${soloPrioridad}" onchange="this.form.submit()">
                     Solo Controlados
                 </label>
 
                 <span class="filter-sep"></span>
-                <span id="contadorResultados"></span>
 
-                <button class="btn" style="padding: 7px 14px; font-size: 0.85rem; background: #f1f5f9; color: #475569;" onclick="limpiarFiltros()">
+                <!-- Contadores -->
+                <span id="contadorResultados" style="font-size: 0.82rem; color: var(--text-secondary); white-space: nowrap;">
+                    <span th:text="${pagina.totalElements}">0</span> medicamento(s)
+                </span>
+
+                <a href="/medicamentos" class="btn" style="padding: 7px 14px; font-size: 0.85rem; background: #f1f5f9; color: #475569; text-decoration: none;">
                     Limpiar filtros
-                </button>
-            </div>
+                </a>
+            </form>
 
             <!-- Tabla -->
             <div class="card" style="padding: 0;">
@@ -163,10 +164,10 @@
                     <table class="table" id="tablaMedicamentos">
                         <thead>
                             <tr>
-                                <th>Código</th>
+                                <th>Cód. SICIAP</th>
                                 <th>Medicamento</th>
                                 <th>Concentración</th>
-                                <th>Tipo</th>
+                                <th>F. Farmacéutica</th>
                                 <th>Presentación</th>
                                 <th>Stock Actual</th>
                                 <th>Mín.</th>
@@ -180,13 +181,19 @@
                                 th:data-nombre="${med.nombre}"
                                 th:data-concentracion="${med.concentracion != null ? med.concentracion : ''}"
                                 th:data-estado="${med.stockTotal == 0 ? 'agotado' : (med.stockBajo ? 'critico' : 'ok')}"
-                                th:data-tipo="${med.tipo != null ? med.tipo.nombre : ''}"
                                 th:data-lasa="${med.esLasa}"
                                 th:data-prioridad="${med.esPrioridad}">
 
-                                <!-- Código -->
+                                <!-- Código SICIAP -->
                                 <td>
-                                    <span class="badge" style="background: #e2e8f0; color: #475569; font-family: monospace;" th:text="${med.codigo}">COD</span>
+                                    <span th:if="${med.codigoSiciap != null}"
+                                          class="badge" style="background:#dbeafe; color:#1d4ed8; font-family:monospace;"
+                                          th:text="${med.codigoSiciap}">SICIAP</span>
+                                    <span th:if="${med.codigoSiciap == null and med.codigo != null}"
+                                          class="badge" style="background:#e2e8f0; color:#475569; font-family:monospace;"
+                                          th:text="${med.codigo}">COD</span>
+                                    <span th:if="${med.codigoSiciap == null and med.codigo == null}"
+                                          style="color:var(--text-secondary); font-size:.8rem;">—</span>
                                 </td>
 
                                 <!-- Nombre + badges -->
@@ -201,11 +208,13 @@
                                 <!-- Concentración -->
                                 <td style="color: var(--text-secondary); font-size: 0.9rem;" th:text="${med.concentracion != null ? med.concentracion : '-'}">-</td>
 
-                                <!-- Tipo -->
-                                <td th:text="${med.tipo != null ? med.tipo.nombre : '-'}">Tipo</td>
+                                <!-- Forma farmacéutica -->
+                                <td style="color: var(--text-secondary); font-size: 0.85rem;"
+                                    th:text="${med.formaFarmaceutica != null and !#strings.isEmpty(med.formaFarmaceutica) ? med.formaFarmaceutica : '-'}">-</td>
 
                                 <!-- Presentación -->
-                                <td th:text="${med.presentacion != null ? med.presentacion.nombre : '-'}">Pres</td>
+                                <td style="color: var(--text-secondary); font-size: 0.85rem;"
+                                    th:text="${med.presentacion != null and !#strings.isEmpty(med.presentacion) ? med.presentacion : '-'}">-</td>
 
                                 <!-- Stock Actual -->
                                 <td>
@@ -221,34 +230,35 @@
                                 <!-- Estado -->
                                 <td>
                                     <span th:if="${med.stockTotal == 0}"
-                                          class="badge badge-agotado">🔴 Agotado</span>
+                                          class="badge badge-agotado">Agotado</span>
                                     <span th:if="${med.stockTotal > 0 and med.stockBajo}"
-                                          class="badge badge-critico">⚠️ Crítico</span>
+                                          class="badge badge-critico">Crítico</span>
                                     <span th:if="${med.stockTotal > 0 and !med.stockBajo}"
-                                          class="badge badge-ok">✅ OK</span>
+                                          class="badge badge-ok">OK</span>
                                 </td>
 
                                 <!-- Acciones -->
-                                <td style="display: flex; gap: 8px;">
-                                    <button class="btn" style="padding: 6px; background: #f1f5f9; color: #3b82f6;" title="Editar"
-                                        th:data-id="${med.id}"
-                                        th:data-nombre="${med.nombre}"
-                                        th:data-concentracion="${med.concentracion != null ? med.concentracion : ''}"
-                                        th:data-codigo="${med.codigo != null ? med.codigo : ''}"
-                                        th:data-tipoid="${med.tipo != null ? med.tipo.id : ''}"
-                                        th:data-presentacionid="${med.presentacion != null ? med.presentacion.id : ''}"
-                                        th:data-minimo="${med.minimo != null ? med.minimo : 0}"
-                                        th:data-esprioridad="${med.esPrioridad}"
-                                        th:data-eslasa="${med.esLasa}"
-                                        th:data-similara="${med.similarA != null ? med.similarA : ''}"
-                                        onclick="openEditModal(this)">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                                    </button>
-                                    <a th:href="@{/medicamentos/eliminar/{id}(id=${med.id})}"
-                                       class="btn" style="padding: 6px; background: #fee2e2; color: #ef4444;" title="Eliminar"
-                                       onclick="return confirm('¿Eliminar este medicamento?');">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                                    </a>
+                                <td>
+                                    <div style="display:flex; gap:8px; align-items:center;">
+                                        <button class="btn" style="padding: 6px; background: #f1f5f9; color: #1d4ed8;" title="Editar"
+                                            th:data-id="${med.id}"
+                                            th:data-nombre="${med.nombre}"
+                                            th:data-concentracion="${med.concentracion != null ? med.concentracion : ''}"
+                                            th:data-codigo="${med.codigo != null ? med.codigo : ''}"
+                                            th:data-minimo="${med.minimo != null ? med.minimo : 0}"
+                                            th:data-esprioridad="${med.esPrioridad}"
+                                            th:data-eslasa="${med.esLasa}"
+                                            th:data-similara="${med.similarA != null ? med.similarA : ''}"
+                                            onclick="openEditModal(this)">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                        </button>
+                                        <form th:action="@{/medicamentos/eliminar/{id}(id=${med.id})}" method="get" style="display:contents;">
+                                            <button type="button" class="btn" style="padding: 6px; background: #fee2e2; color: #b91c1c;" title="Eliminar"
+                                                    onclick="pedirPin(this.closest('form'))">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                            </button>
+                                        </form>
+                                    </div>
                                 </td>
                             </tr>
                             <tr id="sinResultados" style="display:none;">
@@ -266,13 +276,39 @@
                 </div>
             </div>
 
+            <!-- Paginación -->
+            <div th:if="${pagina.totalPages > 1}"
+                 style="display:flex; justify-content:space-between; align-items:center; padding:16px 4px; flex-wrap:wrap; gap:12px; margin-top:4px;">
+                <span style="font-size:0.84rem; color:var(--text-secondary);">
+                    Mostrando
+                    <strong th:text="${pagina.number * pagina.size + 1}">1</strong>–<strong th:text="${pagina.number * pagina.size + #lists.size(medicamentos)}">25</strong>
+                    de <strong th:text="${pagina.totalElements}">0</strong> medicamento(s)
+                </span>
+                <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+                    <a th:if="${!pagina.first}"
+                       th:href="@{/medicamentos(page=${pagina.number - 1}, buscar=${buscar}, soloPrioridad=${soloPrioridad})}"
+                       class="btn" style="padding:6px 14px; font-size:0.85rem; text-decoration:none;">← Anterior</a>
+                    <th:block th:each="i : ${#numbers.sequence(0, pagina.totalPages - 1)}">
+                        <a th:if="${i >= pagina.number - 2 and i <= pagina.number + 2}"
+                           th:href="@{/medicamentos(page=${i}, buscar=${buscar}, soloPrioridad=${soloPrioridad})}"
+                           class="btn"
+                           th:classappend="${i == pagina.number ? ' btn-primary' : ''}"
+                           th:text="${i + 1}"
+                           style="padding:6px 12px; font-size:0.85rem; min-width:36px; text-align:center; text-decoration:none;">1</a>
+                    </th:block>
+                    <a th:if="${!pagina.last}"
+                       th:href="@{/medicamentos(page=${pagina.number + 1}, buscar=${buscar}, soloPrioridad=${soloPrioridad})}"
+                       class="btn" style="padding:6px 14px; font-size:0.85rem; text-decoration:none;">Siguiente →</a>
+                </div>
+            </div>
+
         </div>
     </main>
 
     <!-- Modal Agregar Medicamento -->
     <div id="addMedModal" class="modal">
         <div class="modal-content">
-            <span class="close" onclick="closeModal()">&times;</span>
+            <button type="button" class="close" onclick="closeModal()">&times;</button>
             <h2 style="margin-bottom: 24px; font-size: 1.4rem;">Agregar Nuevo Medicamento</h2>
 
             <form th:action="@{/medicamentos/guardar}" method="post" th:object="${nuevoMedicamento}">
@@ -293,22 +329,6 @@
                     </div>
 
                     <div class="form-group">
-                        <label for="tipo">Tipo de Medicamento *</label>
-                        <select id="tipo" name="tipo" class="form-control" required>
-                            <option value="">Seleccione un tipo</option>
-                            <option th:each="t : ${tipos}" th:value="${t.id}" th:text="${t.nombre}"></option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="presentacion">Presentación *</label>
-                        <select id="presentacion" name="presentacion" class="form-control" required>
-                            <option value="">Seleccione presentación</option>
-                            <option th:each="p : ${presentaciones}" th:value="${p.id}" th:text="${p.nombre}"></option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
                         <label for="minimo">Stock Mínimo</label>
                         <input type="number" id="minimo" name="minimo" class="form-control" min="0" value="0">
                     </div>
@@ -318,7 +338,7 @@
                             <input type="checkbox" name="esPrioridad" value="true"> Medicamento Controlado / Prioridad
                         </label>
                         <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: normal;">
-                            <input type="checkbox" name="esLasa" id="esLasaCheck" value="true" onclick="toggleSimilarA()"> Medicamento LASA
+                            <input type="checkbox" name="esLasa" id="esLasaCheck" value="true" onchange="toggleSimilarA()"> Medicamento LASA
                         </label>
                     </div>
 
@@ -339,39 +359,25 @@
     <!-- Modal Editar Medicamento -->
     <div id="editModal" class="modal">
         <div class="modal-content">
-            <span class="close" onclick="closeEditModal()">&times;</span>
+            <button type="button" class="close" onclick="closeEditModal()">&times;</button>
             <h2 style="margin-bottom: 24px; font-size: 1.4rem;">Editar Medicamento</h2>
             <form th:action="@{/medicamentos/actualizar}" method="post">
                 <input type="hidden" id="editId" name="id">
                 <div class="form-grid">
                     <div class="form-group full-width">
-                        <label>Nombre Genérico *</label>
+                        <label for="editNombre">Nombre Genérico *</label>
                         <input type="text" id="editNombre" name="nombre" class="form-control" required>
                     </div>
                     <div class="form-group">
-                        <label>Concentración</label>
+                        <label for="editConcentracion">Concentración</label>
                         <input type="text" id="editConcentracion" name="concentracion" class="form-control">
                     </div>
                     <div class="form-group">
-                        <label>Código SICIAP</label>
+                        <label for="editCodigo">Código SICIAP</label>
                         <input type="text" id="editCodigo" name="codigo" class="form-control">
                     </div>
                     <div class="form-group">
-                        <label>Tipo de Medicamento *</label>
-                        <select id="editTipo" name="tipoId" class="form-control" required>
-                            <option value="">Seleccione un tipo</option>
-                            <option th:each="t : ${tipos}" th:value="${t.id}" th:text="${t.nombre}"></option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Presentación *</label>
-                        <select id="editPresentacion" name="presentacionId" class="form-control" required>
-                            <option value="">Seleccione presentación</option>
-                            <option th:each="p : ${presentaciones}" th:value="${p.id}" th:text="${p.nombre}"></option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Stock Mínimo</label>
+                        <label for="editMinimo">Stock Mínimo</label>
                         <input type="number" id="editMinimo" name="minimo" class="form-control" min="0">
                     </div>
                     <div class="form-group full-width" style="display: flex; gap: 24px; margin-top: 8px;">
@@ -379,11 +385,11 @@
                             <input type="checkbox" id="editEsPrioridad" name="esPrioridad" value="true"> Medicamento Controlado / Prioridad
                         </label>
                         <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: normal;">
-                            <input type="checkbox" id="editEsLasa" name="esLasa" value="true" onclick="toggleEditSimilarA()"> Medicamento LASA
+                            <input type="checkbox" id="editEsLasa" name="esLasa" value="true" onchange="toggleEditSimilarA()"> Medicamento LASA
                         </label>
                     </div>
                     <div class="form-group full-width" id="editSimilarAGroup" style="display:none;">
-                        <label>Similar a (nombre del medicamento confundible)</label>
+                        <label for="editSimilarA">Similar a (nombre del medicamento confundible)</label>
                         <input type="text" id="editSimilarA" name="similarA" class="form-control">
                     </div>
                 </div>
@@ -395,16 +401,45 @@
         </div>
     </div>
 
+    <!-- Modal PIN para eliminar -->
+    <div id="pinModal" style="display:none; position:fixed; inset:0; z-index:2000;
+         background:rgba(0,0,0,0.55); backdrop-filter:blur(4px);
+         align-items:center; justify-content:center;">
+        <div style="background:var(--card-bg,#fff); border-radius:14px; padding:28px 32px;
+                    max-width:340px; width:90%; box-shadow:0 20px 40px rgba(0,0,0,0.2);">
+            <h3 style="margin:0 0 6px; font-size:1.05rem; font-weight:700; color:var(--text-main);">Confirmar eliminación</h3>
+            <p style="font-size:0.86rem; color:var(--text-secondary); margin:0 0 18px;">
+                Ingresá tu PIN de autorización para continuar.</p>
+            <input type="password" id="pinInput" maxlength="10" placeholder="PIN"
+                   style="width:100%; box-sizing:border-box; padding:9px 12px;
+                          border:1.5px solid var(--border-color); border-radius:8px;
+                          font-size:1rem; background:var(--input-bg,#f8fafc);
+                          color:var(--text-main); outline:none; margin-bottom:6px;"
+                   onkeydown="if(event.key==='Enter') confirmarConPin()">
+            <div id="pinError" style="color:#b91c1c; font-size:0.82rem; min-height:18px; margin-bottom:14px;"></div>
+            <div style="display:flex; gap:10px; justify-content:flex-end;">
+                <button type="button" class="btn" style="background:#f1f5f9; color:#475569; padding:8px 18px;"
+                        onclick="cerrarPinModal()">Cancelar</button>
+                <button type="button" id="pinConfirmBtn" class="btn" style="background:#b91c1c; color:#fff; padding:8px 18px;"
+                        onclick="confirmarConPin()">Eliminar</button>
+            </div>
+        </div>
+    </div>
+
     <script>
+        const CSRF_TOKEN  = /*[[${_csrf.token}]]*/ '';
+        const CSRF_HEADER = /*[[${_csrf.headerName}]]*/ 'X-CSRF-TOKEN';
+
         const modal = document.getElementById("addMedModal");
         const editModal = document.getElementById("editModal");
         function openModal()  { modal.style.display = "block"; }
         function closeModal() { modal.style.display = "none"; }
         function closeEditModal() { editModal.style.display = "none"; }
-        window.onclick = function(e) {
+
+        globalThis.addEventListener('click', function(e) {
             if (e.target === modal) closeModal();
             if (e.target === editModal) closeEditModal();
-        };
+        });
 
         function toggleSimilarA() {
             const show = document.getElementById('esLasaCheck').checked;
@@ -421,8 +456,6 @@
             document.getElementById('editNombre').value = btn.dataset.nombre;
             document.getElementById('editConcentracion').value = btn.dataset.concentracion;
             document.getElementById('editCodigo').value = btn.dataset.codigo;
-            document.getElementById('editTipo').value = btn.dataset.tipoid;
-            document.getElementById('editPresentacion').value = btn.dataset.presentacionid;
             document.getElementById('editMinimo').value = btn.dataset.minimo;
             document.getElementById('editEsPrioridad').checked = btn.dataset.esprioridad === 'true';
             const esLasa = btn.dataset.eslasa === 'true';
@@ -432,41 +465,73 @@
             editModal.style.display = 'block';
         }
 
-        function filtrar() {
-            const buscar = document.getElementById('buscarNombre').value.toLowerCase().trim();
-            const estado = document.getElementById('filtroEstado').value;
-            const tipo   = document.getElementById('filtroTipo').value.toLowerCase();
-            const soloP  = document.getElementById('soloPrioridad').checked;
+        // ── PIN para eliminar ─────────────────────────────────────────────────
+        let pendingDeleteForm = null;
 
+        function pedirPin(formEl) {
+            pendingDeleteForm = formEl;
+            document.getElementById('pinInput').value = '';
+            document.getElementById('pinError').textContent = '';
+            const pinModal = document.getElementById('pinModal');
+            pinModal.style.display = 'flex';
+            setTimeout(() => document.getElementById('pinInput').focus(), 60);
+        }
+
+        function cerrarPinModal() {
+            document.getElementById('pinModal').style.display = 'none';
+            pendingDeleteForm = null;
+        }
+
+        async function confirmarConPin() {
+            const pin = document.getElementById('pinInput').value.trim();
+            if (!pin) { document.getElementById('pinError').textContent = 'Ingresá tu PIN.'; return; }
+            const btn = document.getElementById('pinConfirmBtn');
+            btn.disabled = true; btn.textContent = 'Verificando…';
+            try {
+                const resp = await fetch('/api/auth/validarPin', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', [CSRF_HEADER]: CSRF_TOKEN },
+                    body: JSON.stringify({ pin })
+                });
+                if (!resp.ok) {
+                    document.getElementById('pinError').textContent = 'PIN incorrecto.';
+                    return;
+                }
+                cerrarPinModal();
+                pendingDeleteForm.submit();
+            } catch(err) {
+                document.getElementById('pinError').textContent = 'Error de red: ' + err.message;
+            } finally {
+                btn.disabled = false; btn.textContent = 'Eliminar';
+            }
+        }
+
+        // Filtro por estado: solo aplica a la página actual (buscar y prioridad son server-side)
+        function filtrarEstado() {
+            const estado = document.getElementById('filtroEstado').value;
             const rows = document.querySelectorAll('tbody tr.med-row');
             let visible = 0;
-
             rows.forEach(row => {
-                const nombre = (row.dataset.nombre + ' ' + row.dataset.concentracion).toLowerCase();
-                const match =
-                    (buscar === '' || nombre.includes(buscar)) &&
-                    (estado === '' || row.dataset.estado === estado) &&
-                    (tipo   === '' || row.dataset.tipo.toLowerCase() === tipo) &&
-                    (!soloP  || row.dataset.prioridad === 'true');
-
+                const match = estado === '' || row.dataset.estado === estado;
                 row.style.display = match ? '' : 'none';
                 if (match) visible++;
             });
-
-            document.getElementById('sinResultados').style.display = (visible === 0 && rows.length > 0) ? '' : 'none';
-            document.getElementById('contadorResultados').textContent = visible + ' medicamento(s)';
+            document.getElementById('sinResultados').style.display =
+                (visible === 0 && rows.length > 0) ? '' : 'none';
         }
 
-        function limpiarFiltros() {
-            document.getElementById('buscarNombre').value = '';
-            document.getElementById('filtroEstado').value = '';
-            document.getElementById('filtroTipo').value   = '';
-            document.getElementById('soloPrioridad').checked = false;
-            filtrar();
-        }
+        // Debounce: envía el formulario 500ms después de dejar de escribir
+        (function() {
+            let timer;
+            const input = document.getElementById('buscarNombre');
+            if (!input) return;
+            input.addEventListener('input', function() {
+                clearTimeout(timer);
+                timer = setTimeout(() => document.getElementById('filtroForm').submit(), 500);
+            });
+        })();
 
-        // Inicializar contador
-        window.addEventListener('DOMContentLoaded', filtrar);
+        globalThis.addEventListener('DOMContentLoaded', filtrarEstado);
     </script>
 </body>
 </html>

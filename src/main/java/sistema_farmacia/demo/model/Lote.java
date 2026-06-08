@@ -18,19 +18,13 @@ public class Lote {
     private Long id;
 
     private String nroLote;
-    private String nroSerie; // Para trazabilidad nacional (ANMAT/COFEPRIS)
     private LocalDate fechaVencimiento;
     private Integer cantidadDisponible;
-    private String estado;
 
     @ManyToOne
     @JoinColumn(name = "medicamento_id")
     @ToString.Exclude
     private Medicamento medicamento;
-
-    @ManyToOne
-    @JoinColumn(name = "deposito_id")
-    private Deposito deposito;
 
     public long getDiasHastaVencimiento() {
         if (fechaVencimiento == null) return Long.MAX_VALUE;

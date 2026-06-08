@@ -1,57 +1,221 @@
+/* ═══════════════════════════════════════════════════════
+   Variables de tema — Modo claro (default)
+═══════════════════════════════════════════════════════ */
 :root {
     --bg-main: #f8fafc;
     --sidebar-bg: #0f172a;
     --sidebar-hover: #1e293b;
     --accent: #3b82f6;
     --accent-hover: #2563eb;
+    --primary: #3b82f6;           /* alias for --accent */
     --danger: #ef4444;
     --warning: #f59e0b;
     --success: #10b981;
     --text-primary: #1e293b;
+    --text-main: #1e293b;         /* alias for --text-primary */
     --text-secondary: #64748b;
     --white: #ffffff;
-    --card-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    --card-bg: #ffffff;
+    --input-bg: #f8fafc;
+    --border-color: #e2e8f0;
+    --table-header-bg: #f8fafc;
+    --card-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
     --border-radius: 12px;
 }
 
+/* ═══════════════════════════════════════════════════════
+   Variables de tema — Modo oscuro
+═══════════════════════════════════════════════════════ */
 .dark-mode {
     --bg-main: #0f172a;
     --sidebar-bg: #020617;
     --sidebar-hover: #1e293b;
     --accent: #3b82f6;
     --accent-hover: #60a5fa;
-    --white: #1e293b;
+    --primary: #3b82f6;
     --text-primary: #f8fafc;
+    --text-main: #f8fafc;
     --text-secondary: #94a3b8;
-    --card-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
+    --white: #1e293b;
+    --card-bg: #1e293b;
+    --input-bg: #0f172a;
     --border-color: #334155;
+    --table-header-bg: #1e293b;
+    --card-shadow: 0 10px 15px -3px rgba(0,0,0,0.4);
 }
 
-.dark-mode table, .dark-mode th, .dark-mode td {
-    border-color: #334155;
+/* ═══════════════════════════════════════════════════════
+   Dark mode — tablas
+═══════════════════════════════════════════════════════ */
+.dark-mode table,
+.dark-mode th,
+.dark-mode td {
+    border-color: var(--border-color);
 }
-
 .dark-mode tr:hover td {
     background-color: #334155;
 }
-
 .dark-mode th {
-    background-color: #1e293b;
+    background-color: var(--table-header-bg);
+    color: var(--text-secondary);
+}
+.dark-mode td {
+    color: var(--text-primary);
 }
 
+/* ═══════════════════════════════════════════════════════
+   Dark mode — formularios
+═══════════════════════════════════════════════════════ */
 .dark-mode .form-control {
-    background-color: #0f172a;
-    border-color: #334155;
-    color: white;
+    background-color: var(--input-bg);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+.dark-mode .form-control::placeholder {
+    color: #475569;
+}
+.dark-mode .form-control:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+.dark-mode select.form-control {
+    background-color: var(--input-bg);
+    color: var(--text-primary);
 }
 
+/* ═══════════════════════════════════════════════════════
+   Dark mode — filtro bar (medicamentos, lotes)
+═══════════════════════════════════════════════════════ */
+.dark-mode .filter-bar {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+}
+.dark-mode .filter-bar input[type="text"],
+.dark-mode .filter-bar select {
+    background: var(--input-bg);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+.dark-mode .filter-bar label {
+    color: var(--text-secondary);
+}
+
+/* ═══════════════════════════════════════════════════════
+   Dark mode — modales
+═══════════════════════════════════════════════════════ */
+.dark-mode .modal-content {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+}
+.dark-mode .modal-header {
+    border-bottom-color: var(--border-color);
+}
+.dark-mode .modal-header h3 {
+    color: var(--text-primary);
+}
+.dark-mode .modal-close {
+    background: #334155;
+    color: var(--text-secondary);
+}
+.dark-mode .modal-close:hover {
+    background: #475569;
+    color: var(--text-primary);
+}
+.dark-mode .modal-footer {
+    border-top-color: var(--border-color);
+}
+/* Modal viejo (medicamentos.html usa clase .modal en vez de .modal-overlay) */
+.dark-mode .modal-content .modal-header,
+.dark-mode .modal .modal-content {
+    background: var(--card-bg);
+}
+.dark-mode .close {
+    color: var(--text-secondary);
+}
+.dark-mode .close:hover {
+    color: var(--text-primary);
+}
+
+/* ═══════════════════════════════════════════════════════
+   Dark mode — botones
+═══════════════════════════════════════════════════════ */
+.dark-mode .btn-secondary {
+    background-color: #334155;
+    color: var(--text-primary);
+}
+.dark-mode .btn-secondary:hover {
+    background-color: #475569;
+}
+
+/* ═══════════════════════════════════════════════════════
+   Dark mode — tarjetas y contenedores
+═══════════════════════════════════════════════════════ */
+.dark-mode .stat-card {
+    border-color: var(--border-color);
+}
+.dark-mode .table-container {
+    border-color: var(--border-color);
+}
+.dark-mode .table-header {
+    border-bottom-color: var(--border-color);
+}
+.dark-mode .card {
+    background: var(--card-bg);
+    border-color: var(--border-color);
+}
+
+/* ═══════════════════════════════════════════════════════
+   Dark mode — badges y alertas inline
+═══════════════════════════════════════════════════════ */
+.dark-mode .badge-danger  { background: #3f1515; color: #fca5a5; }
+.dark-mode .badge-warning { background: #3f2d06; color: #fcd34d; }
+.dark-mode .badge-success { background: #0d3b25; color: #6ee7b7; }
+
+/* Mensajes de éxito/error en formularios */
+.dark-mode [style*="background-color: #dcfce7"],
+.dark-mode [style*="background: #f0fdf4"],
+.dark-mode [style*="background-color: #f0fdf4"] {
+    background-color: #0d3b25 !important;
+    color: #6ee7b7 !important;
+    border-color: #134e37 !important;
+}
+.dark-mode [style*="background-color: #fee2e2"],
+.dark-mode [style*="background: #fee2e2"] {
+    background-color: #3f1515 !important;
+    color: #fca5a5 !important;
+    border-color: #5a1e1e !important;
+}
+
+/* Cards de contenido con background: white */
+.dark-mode .main-content [style*="background: white"],
+.dark-mode .main-content [style*="background-color: white"],
+.dark-mode .main-content [style*="background:#ffffff"],
+.dark-mode .main-content [style*="background: #ffffff"] {
+    background: var(--card-bg) !important;
+}
+
+/* ═══════════════════════════════════════════════════════
+   Dark mode — scrollbar
+═══════════════════════════════════════════════════════ */
+html.dark-mode ::-webkit-scrollbar-track {
+    background: #1e293b;
+}
+html.dark-mode ::-webkit-scrollbar-thumb {
+    background: #475569;
+}
+html.dark-mode ::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+}
+
+/* ═══════════════════════════════════════════════════════
+   Reset global
+═══════════════════════════════════════════════════════ */
 * {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
 }
 
-/* Scrollbar Customization */
 ::-webkit-scrollbar {
     width: 8px;
 }
@@ -74,8 +238,9 @@ body {
     min-height: 100vh;
 }
 
-
-/* Sidebar Moderno */
+/* ═══════════════════════════════════════════════════════
+   Sidebar
+═══════════════════════════════════════════════════════ */
 .sidebar {
     width: 260px;
     min-width: 260px;
@@ -169,20 +334,20 @@ body {
     gap: 12px;
 }
 
-
-
 .sidebar nav a:hover {
     background-color: var(--sidebar-hover);
-    color: var(--white);
+    color: #ffffff;
 }
 
 .sidebar nav a.active {
     background-color: var(--accent);
-    color: var(--white);
+    color: #ffffff;
     box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.5);
 }
 
-/* Contenido Principal */
+/* ═══════════════════════════════════════════════════════
+   Contenido Principal
+═══════════════════════════════════════════════════════ */
 .main-content {
     flex-grow: 1;
     padding: 40px;
@@ -203,7 +368,9 @@ body {
     letter-spacing: -0.025em;
 }
 
-/* Secciones y Tarjetas */
+/* ═══════════════════════════════════════════════════════
+   Secciones y Tarjetas
+═══════════════════════════════════════════════════════ */
 .section-title {
     font-size: 1.125rem;
     font-weight: 600;
@@ -221,14 +388,15 @@ body {
 }
 
 .stat-card {
-    background: var(--white);
+    background: var(--card-bg);
     padding: 24px;
     border-radius: var(--border-radius);
     box-shadow: var(--card-shadow);
-    border: 1px solid rgba(226, 232, 240, 0.8);
+    border: 1px solid var(--border-color);
     transition: transform 0.2s;
     position: relative;
     overflow: hidden;
+    animation: fadeIn 0.4s ease-out;
 }
 
 .stat-card:hover {
@@ -245,9 +413,12 @@ body {
     background: var(--accent);
 }
 
-.stat-card.danger::before { background: var(--danger); }
+.stat-card.danger::before  { background: var(--danger); }
 .stat-card.warning::before { background: var(--warning); }
 .stat-card.success::before { background: var(--success); }
+
+.stat-card:nth-child(2) { animation-delay: 0.1s; }
+.stat-card:nth-child(3) { animation-delay: 0.2s; }
 
 .stat-card h3 {
     font-size: 0.875rem;
@@ -269,18 +440,20 @@ body {
     color: var(--text-secondary);
 }
 
-/* Tablas Premium */
+/* ═══════════════════════════════════════════════════════
+   Tablas
+═══════════════════════════════════════════════════════ */
 .table-container {
-    background: var(--white);
+    background: var(--card-bg);
     border-radius: var(--border-radius);
     box-shadow: var(--card-shadow);
     overflow: hidden;
-    border: 1px solid rgba(226, 232, 240, 0.8);
+    border: 1px solid var(--border-color);
 }
 
 .table-header {
     padding: 20px 24px;
-    border-bottom: 1px solid #f1f5f9;
+    border-bottom: 1px solid var(--border-color);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -292,7 +465,7 @@ table {
 }
 
 th {
-    background-color: #f8fafc;
+    background-color: var(--table-header-bg);
     padding: 16px 24px;
     text-align: left;
     font-size: 0.75rem;
@@ -300,12 +473,14 @@ th {
     color: var(--text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--border-color);
 }
 
 td {
     padding: 16px 24px;
-    border-bottom: 1px solid #f1f5f9;
+    border-bottom: 1px solid var(--border-color);
     font-size: 0.95rem;
+    color: var(--text-primary);
 }
 
 tr:last-child td {
@@ -313,10 +488,12 @@ tr:last-child td {
 }
 
 tr:hover td {
-    background-color: #f8fafc;
+    background-color: rgba(0,0,0,0.02);
 }
 
-/* Badges y Botones */
+/* ═══════════════════════════════════════════════════════
+   Badges
+═══════════════════════════════════════════════════════ */
 .badge {
     padding: 4px 12px;
     border-radius: 9999px;
@@ -324,10 +501,13 @@ tr:hover td {
     font-weight: 600;
 }
 
-.badge-danger { background: #fee2e2; color: #b91c1c; }
+.badge-danger  { background: #fee2e2; color: #b91c1c; }
 .badge-warning { background: #fef3c7; color: #92400e; }
 .badge-success { background: #d1fae5; color: #065f46; }
 
+/* ═══════════════════════════════════════════════════════
+   Botones
+═══════════════════════════════════════════════════════ */
 .btn {
     display: inline-flex;
     align-items: center;
@@ -343,7 +523,7 @@ tr:hover td {
 
 .btn-primary {
     background-color: var(--accent);
-    color: var(--white);
+    color: #ffffff; /* siempre blanco — no usa --white que cambia en dark mode */
 }
 
 .btn-primary:hover {
@@ -356,7 +536,13 @@ tr:hover td {
     color: var(--text-primary);
 }
 
-/* Formularios */
+.btn-secondary:hover {
+    background-color: #e2e8f0;
+}
+
+/* ═══════════════════════════════════════════════════════
+   Formularios
+═══════════════════════════════════════════════════════ */
 .form-group {
     margin-bottom: 20px;
 }
@@ -372,10 +558,12 @@ tr:hover td {
 .form-control {
     width: 100%;
     padding: 12px 16px;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--border-color);
     border-radius: 8px;
     font-size: 1rem;
     transition: border-color 0.2s;
+    background-color: var(--input-bg);
+    color: var(--text-primary);
 }
 
 .form-control:focus {
@@ -384,30 +572,9 @@ tr:hover td {
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
-/* Acciones Rápidas (como el wireframe) */
-.quick-actions {
-    display: flex;
-    gap: 16px;
-    margin-top: 24px;
-}
-
-@media (max-width: 768px) {
-    body {
-        flex-direction: column;
-    }
-    .sidebar {
-        width: 100%;
-        padding: 16px;
-    }
-    .main-content {
-        padding: 20px;
-    }
-    .stats-grid {
-        grid-template-columns: 1fr;
-    }
-}
-
-/* Modal Styles */
+/* ═══════════════════════════════════════════════════════
+   Modales
+═══════════════════════════════════════════════════════ */
 .modal-overlay {
     position: fixed;
     top: 0;
@@ -423,7 +590,7 @@ tr:hover td {
 }
 
 .modal-content {
-    background: var(--white);
+    background: var(--card-bg);
     padding: 0;
     border-radius: 16px;
     max-width: 540px;
@@ -433,6 +600,7 @@ tr:hover td {
     transition: transform 0.2s ease;
     max-height: 90vh;
     overflow-y: auto;
+    border: 1px solid var(--border-color);
 }
 
 .modal-header {
@@ -440,7 +608,7 @@ tr:hover td {
     justify-content: space-between;
     align-items: center;
     padding: 20px 24px;
-    border-bottom: 1px solid #f1f5f9;
+    border-bottom: 1px solid var(--border-color);
 }
 
 .modal-header h3 {
@@ -454,7 +622,7 @@ tr:hover td {
     width: 32px;
     height: 32px;
     border: none;
-    background: #f1f5f9;
+    background: rgba(0,0,0,0.06);
     border-radius: 8px;
     font-size: 1.25rem;
     cursor: pointer;
@@ -466,7 +634,7 @@ tr:hover td {
 }
 
 .modal-close:hover {
-    background: #e2e8f0;
+    background: rgba(0,0,0,0.12);
     color: var(--text-primary);
 }
 
@@ -483,10 +651,12 @@ tr:hover td {
     gap: 10px;
     padding-top: 16px;
     margin-top: 8px;
-    border-top: 1px solid #f1f5f9;
+    border-top: 1px solid var(--border-color);
 }
 
-/* Delete Button */
+/* ═══════════════════════════════════════════════════════
+   Action Buttons
+═══════════════════════════════════════════════════════ */
 .btn-icon-delete {
     width: 34px;
     height: 34px;
@@ -507,7 +677,6 @@ tr:hover td {
     transform: scale(1.05);
 }
 
-/* Professional Action Buttons */
 .action-btn {
     display: inline-flex;
     align-items: center;
@@ -527,7 +696,6 @@ tr:hover td {
     color: #2563eb;
     border-color: #bfdbfe;
 }
-
 .action-btn-edit:hover {
     background: #2563eb;
     color: #fff;
@@ -541,7 +709,6 @@ tr:hover td {
     color: #dc2626;
     border-color: #fecaca;
 }
-
 .action-btn-delete:hover {
     background: #dc2626;
     color: #fff;
@@ -550,29 +717,31 @@ tr:hover td {
     transform: translateY(-1px);
 }
 
-.action-btn svg {
-    flex-shrink: 0;
+.action-btn svg { flex-shrink: 0; }
+
+.dark-mode .action-btn-edit {
+    background: #1e3a6e;
+    color: #93c5fd;
+    border-color: #2d56a8;
+}
+.dark-mode .action-btn-delete {
+    background: #3f1515;
+    color: #fca5a5;
+    border-color: #5a1e1e;
 }
 
-/* Animations */
-@keyframes slideIn {
-    from { transform: translateX(100%); opacity: 0; }
-    to { transform: translateX(0); opacity: 1; }
+/* ═══════════════════════════════════════════════════════
+   Acciones rápidas
+═══════════════════════════════════════════════════════ */
+.quick-actions {
+    display: flex;
+    gap: 16px;
+    margin-top: 24px;
 }
 
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-.stat-card {
-    animation: fadeIn 0.4s ease-out;
-}
-
-.stat-card:nth-child(2) { animation-delay: 0.1s; }
-.stat-card:nth-child(3) { animation-delay: 0.2s; }
-
-/* User Dropdown Menu */
+/* ═══════════════════════════════════════════════════════
+   User Dropdown
+═══════════════════════════════════════════════════════ */
 .user-menu-container:hover {
     background: rgba(0,0,0,0.03);
 }
@@ -588,7 +757,7 @@ tr:hover td {
     background: var(--card-bg);
     border: 1px solid var(--border-color);
     border-radius: 12px;
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 10px 25px -5px rgba(0,0,0,0.15), 0 8px 10px -6px rgba(0,0,0,0.1);
     opacity: 0;
     visibility: hidden;
     transform: translateY(-10px);
@@ -613,13 +782,16 @@ tr:hover td {
     border-radius: 6px;
     cursor: pointer;
     font-size: 0.9rem;
-    color: var(--text-color);
+    color: var(--text-primary);
     text-align: left;
     transition: all 0.2s;
 }
 
 .theme-option:hover {
-    background: var(--background);
+    background: rgba(0,0,0,0.05);
+}
+.dark-mode .theme-option:hover {
+    background: rgba(255,255,255,0.07);
 }
 
 .theme-option.active {
@@ -628,8 +800,14 @@ tr:hover td {
     font-weight: 500;
 }
 .dark-mode .theme-option.active {
-    background: rgba(37, 99, 235, 0.2);
-    color: #60a5fa;
+    background: #1e3a6e;
+    color: #93c5fd;
+}
+
+.dropdown-divider {
+    height: 1px;
+    background: var(--border-color);
+    margin: 4px 0;
 }
 
 .dropdown-item.text-danger:hover {
@@ -637,4 +815,36 @@ tr:hover td {
 }
 .dark-mode .dropdown-item.text-danger:hover {
     background: rgba(220, 38, 38, 0.2) !important;
+}
+
+/* ═══════════════════════════════════════════════════════
+   Responsive
+═══════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+    body {
+        flex-direction: column;
+    }
+    .sidebar {
+        width: 100%;
+        padding: 16px;
+    }
+    .main-content {
+        padding: 20px;
+    }
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════
+   Animaciones
+═══════════════════════════════════════════════════════ */
+@keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to   { transform: translateX(0);    opacity: 1; }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
 }

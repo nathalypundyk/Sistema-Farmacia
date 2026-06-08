@@ -1,36 +1,38 @@
 package sistema_farmacia.demo.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.ModelAttribute;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.*;
 import sistema_farmacia.demo.model.Medicamento;
 import sistema_farmacia.demo.repository.MedicamentoRepository;
-import sistema_farmacia.demo.repository.PresentacionRepository;
-import sistema_farmacia.demo.repository.TipoMedicamentoRepository;
 
 @Controller
 @RequestMapping("/medicamentos")
 public class MedicamentoController {
 
+    private static final int PAGE_SIZE = 25;
+
     @Autowired
     private MedicamentoRepository medicamentoRepository;
 
-    @Autowired
-    private TipoMedicamentoRepository tipoMedicamentoRepository;
-
-    @Autowired
-    private PresentacionRepository presentacionRepository;
-
     @GetMapping
-    public String listarMedicamentos(Model model) {
-        model.addAttribute("activePage", "medicamentos");
-        model.addAttribute("medicamentos", medicamentoRepository.findAll());
-        model.addAttribute("tipos", tipoMedicamentoRepository.findAll());
-        model.addAttribute("presentaciones", presentacionRepository.findAll());
+    public String listarMedicamentos(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "") String buscar,
+            @RequestParam(defaultValue = "false") boolean soloPrioridad,
+            Model model) {
+
+        Page<Medicamento> pagina = medicamentoRepository.buscarPaginado(
+                buscar.trim(), soloPrioridad,
+                PageRequest.of(page, PAGE_SIZE));
+
+        model.addAttribute("medicamentos", pagina.getContent());
+        model.addAttribute("pagina", pagina);
+        model.addAttribute("buscar", buscar);
+        model.addAttribute("soloPrioridad", soloPrioridad);
         model.addAttribute("nuevoMedicamento", new Medicamento());
         return "medicamentos";
     }
@@ -38,7 +40,6 @@ public class MedicamentoController {
     @PostMapping("/guardar")
     public String guardarMedicamento(@ModelAttribute Medicamento medicamento) {
         try {
-            // Generar código aleatorio si no se provee
             if (medicamento.getCodigo() == null || medicamento.getCodigo().isEmpty()) {
                 medicamento.setCodigo("MED-" + System.currentTimeMillis());
             }
@@ -51,23 +52,19 @@ public class MedicamentoController {
 
     @PostMapping("/actualizar")
     public String actualizarMedicamento(
-            @org.springframework.web.bind.annotation.RequestParam Long id,
-            @org.springframework.web.bind.annotation.RequestParam String nombre,
-            @org.springframework.web.bind.annotation.RequestParam(required = false) String concentracion,
-            @org.springframework.web.bind.annotation.RequestParam(required = false) String codigo,
-            @org.springframework.web.bind.annotation.RequestParam(required = false) Long tipoId,
-            @org.springframework.web.bind.annotation.RequestParam(required = false) Long presentacionId,
-            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") Integer minimo,
-            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "false") boolean esPrioridad,
-            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "false") boolean esLasa,
-            @org.springframework.web.bind.annotation.RequestParam(required = false) String similarA) {
+            @RequestParam Long id,
+            @RequestParam String nombre,
+            @RequestParam(required = false) String concentracion,
+            @RequestParam(required = false) String codigo,
+            @RequestParam(defaultValue = "0") Integer minimo,
+            @RequestParam(defaultValue = "false") boolean esPrioridad,
+            @RequestParam(defaultValue = "false") boolean esLasa,
+            @RequestParam(required = false) String similarA) {
         try {
             Medicamento med = medicamentoRepository.findById(id).orElseThrow();
             med.setNombre(nombre);
             med.setConcentracion(concentracion);
             if (codigo != null && !codigo.isBlank()) med.setCodigo(codigo);
-            if (tipoId != null) tipoMedicamentoRepository.findById(tipoId).ifPresent(med::setTipo);
-            if (presentacionId != null) presentacionRepository.findById(presentacionId).ifPresent(med::setPresentacion);
             med.setMinimo(minimo);
             med.setEsPrioridad(esPrioridad);
             med.setEsLasa(esLasa);
@@ -80,12 +77,12 @@ public class MedicamentoController {
     }
 
     @GetMapping("/eliminar/{id}")
-    public String eliminarMedicamento(@org.springframework.web.bind.annotation.PathVariable Long id) {
+    public String eliminarMedicamento(@PathVariable Long id) {
         try {
             medicamentoRepository.deleteById(id);
             return "redirect:/medicamentos?success";
         } catch (Exception e) {
-            return "redirect:/medicamentos?error=No se puede eliminar el producto porque tiene lotes o registros asociados.";
+            return "redirect:/medicamentos?error=No se puede eliminar el medicamento porque tiene lotes o registros asociados.";
         }
     }
 }

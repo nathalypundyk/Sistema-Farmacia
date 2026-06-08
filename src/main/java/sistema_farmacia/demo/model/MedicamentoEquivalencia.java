@@ -3,6 +3,8 @@ package sistema_farmacia.demo.model;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "medicamento_equivalencias",
        uniqueConstraints = @UniqueConstraint(columnNames = {"nombre_externo", "concentracion_externa"}))
@@ -26,4 +28,7 @@ public class MedicamentoEquivalencia {
     @JoinColumn(name = "medicamento_id", nullable = false)
     @ToString.Exclude
     private Medicamento medicamento;
+
+    private LocalDateTime fechaConfirmacion;
+    private String usuarioConfirmacion;
 }

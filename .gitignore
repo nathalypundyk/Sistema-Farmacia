@@ -46,3 +46,6 @@ logs/
 ### Env ###
 .env
 .env.local
+
+### H2 database files ###
+data/

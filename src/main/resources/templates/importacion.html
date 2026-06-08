@@ -1,184 +1,432 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
 <head th:replace="~{layout/main :: head('Importar Stock - HGS')}"></head>
 <body>
 
-    <aside th:replace="~{layout/main :: sidebar('importacion')}"></aside>
+<aside th:replace="~{layout/main :: sidebar('importacion')}"></aside>
 
-    <main class="main-content">
-        <header th:replace="~{layout/main :: header('Importar Stock desde Excel')}"></header>
+<main class="main-content">
+    <header th:replace="~{layout/main :: header('Importar Stock desde Excel')}"></header>
 
-        <div style="margin-top: 30px;">
+    <!-- Datos para JavaScript -->
+    <script th:inline="javascript">
+        /*<![CDATA[*/
+        const CSRF_TOKEN  = /*[[${_csrf.token}]]*/ '';
+        const CSRF_HEADER = /*[[${_csrf.headerName}]]*/ 'X-CSRF-TOKEN';
+        const MEDICAMENTOS = JSON.parse(/*[[${medicamentosJson}]]*/ '[]');
+        /*]]>*/
+    </script>
 
-            <!-- Mensaje de éxito -->
-            <div th:if="${exito}" class="alert alert-success"
-                 style="background: #d1fae5; border: 1px solid #34d399; border-radius: 10px; padding: 16px 20px; margin-bottom: 24px; color: #065f46; display: flex; align-items: center; gap: 10px;">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                <span th:text="${exito}"></span>
-            </div>
+    <div style="margin-top: 30px;">
 
-            <!-- Mensaje de error -->
-            <div th:if="${error}" class="alert alert-danger"
-                 style="background: #fee2e2; border: 1px solid #f87171; border-radius: 10px; padding: 16px 20px; margin-bottom: 24px; color: #991b1b; display: flex; align-items: center; gap: 10px;">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                <span th:text="${error}"></span>
-            </div>
-
-            <!-- Panel de carga de archivo -->
-            <div th:if="${resultado == null}" class="card" style="background: var(--card-bg); border-radius: 16px; padding: 32px; max-width: 600px; box-shadow: var(--shadow);">
-                <h2 class="section-title" style="margin-bottom: 8px;">Subir archivo de stock</h2>
-                <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 28px;">
-                    El Excel debe tener columnas de <strong>nombre</strong>, <strong>concentración</strong>,
-                    <strong>número de lote</strong>, <strong>fecha de vencimiento</strong> y <strong>saldo/cantidad</strong>.
+        <!-- ── PASO 1: Upload ──────────────────────────────────────────── -->
+        <div id="step1">
+            <div style="max-width: 580px;">
+                <h2 class="section-title" style="margin-bottom: 6px;">Subir archivo de stock</h2>
+                <p style="color: var(--text-secondary); font-size: 0.88rem; margin-bottom: 28px;">
+                    Formato esperado: <strong>.xls exportado desde SICIAP</strong>.
+                    Los datos deben comenzar en la fila 7 con columnas de nombre, concentración, lote, vencimiento y cantidad.
                 </p>
 
-                <form method="post" action="/importacion/preview" enctype="multipart/form-data">
-                    <div style="border: 2px dashed var(--border-color); border-radius: 12px; padding: 40px; text-align: center; cursor: pointer;"
-                         onclick="document.getElementById('archivoInput').click()" id="dropZone">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 12px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                        <p style="color: var(--text-secondary); margin: 0 0 8px 0;">Hacé clic para seleccionar el archivo</p>
-                        <p id="fileName" style="color: var(--text-primary); font-weight: 600; font-size: 0.9rem; margin: 0;">Ningún archivo seleccionado</p>
-                        <input type="file" id="archivoInput" name="archivo" accept=".xlsx,.xls"
-                               style="display: none;" onchange="showFileName(this)">
-                    </div>
-                    <button type="submit" class="btn btn-primary"
-                            style="margin-top: 20px; width: 100%; padding: 12px; font-size: 1rem; border-radius: 10px; background: var(--primary); color: white; border: none; cursor: pointer; font-weight: 600;">
-                        Analizar archivo
-                    </button>
-                </form>
-            </div>
-
-            <!-- Panel de previsualización -->
-            <div th:if="${resultado != null}">
-
-                <!-- Resumen estadísticas -->
-                <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: 28px;">
-                    <div class="stat-card success">
-                        <h3>Match automático</h3>
-                        <div class="value" th:text="${#lists.size(resultado.matched)}">0</div>
-                        <small>Se actualizan directo</small>
-                    </div>
-                    <div class="stat-card warning">
-                        <h3>Requieren revisión</h3>
-                        <div class="value" th:text="${#lists.size(resultado.unmatched)}">0</div>
-                        <small>Asignación manual</small>
-                    </div>
-                    <div class="stat-card">
-                        <h3>Filas en Excel</h3>
-                        <div class="value" th:text="${resultado.totalFilasExcel}">0</div>
-                        <small>Lotes detectados</small>
-                    </div>
+                <div id="dropzone"
+                     style="border: 2px dashed var(--border-color); border-radius: 14px; padding: 48px 32px; text-align: center; cursor: pointer; transition: border-color .2s, background .2s;"
+                     onclick="document.getElementById('archivoInput').click()"
+                     ondragover="event.preventDefault(); this.style.borderColor='var(--primary)'; this.style.background='rgba(99,102,241,.06)'"
+                     ondragleave="this.style.borderColor='var(--border-color)'; this.style.background=''"
+                     ondrop="event.preventDefault(); this.style.borderColor='var(--border-color)'; this.style.background=''; handleDrop(event)">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 24 24"
+                         fill="none" stroke="var(--text-secondary)" stroke-width="1.5"
+                         stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 14px;">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
+                    <p style="color: var(--text-secondary); margin: 0 0 6px;">Arrastrá el archivo acá o hacé clic para seleccionarlo</p>
+                    <p id="fileName" style="color: var(--text-primary); font-weight: 600; font-size: 0.9rem; margin: 0;">Ningún archivo seleccionado</p>
+                    <input type="file" id="archivoInput" accept=".xls,.xlsx" style="display:none"
+                           onchange="setArchivo(this.files[0])">
                 </div>
 
-                <form method="post" action="/importacion/confirmar">
+                <div id="uploadError" style="display:none; margin-top:14px; padding:12px 16px; background:#fee2e2; border-radius:10px; color:#991b1b; font-size:.88rem;"></div>
 
-                    <!-- Sección: match automático -->
-                    <div th:if="${!#lists.isEmpty(resultado.matched)}" style="margin-bottom: 32px;">
-                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 14px;">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                            <h3 style="margin: 0; color: #059669; font-size: 1rem;">Match automático</h3>
-                            <span style="background: #d1fae5; color: #065f46; font-size: 0.75rem; padding: 2px 10px; border-radius: 20px; font-weight: 600;"
-                                  th:text="${#lists.size(resultado.matched)} + ' medicamentos'"></span>
-                        </div>
-                        <div style="background: var(--card-bg); border-radius: 12px; overflow: hidden; border: 1px solid var(--border-color);">
-                            <table class="data-table" style="width: 100%; border-collapse: collapse;">
-                                <thead>
-                                    <tr style="background: var(--table-header-bg);">
-                                        <th style="padding: 12px 16px; text-align: left; font-size: 0.8rem; color: var(--text-secondary);">Excel (nombre externo)</th>
-                                        <th style="padding: 12px 16px; text-align: left; font-size: 0.8rem; color: var(--text-secondary);">Sistema interno</th>
-                                        <th style="padding: 12px 16px; text-align: center; font-size: 0.8rem; color: var(--text-secondary);">Lotes</th>
-                                        <th style="padding: 12px 16px; text-align: center; font-size: 0.8rem; color: var(--text-secondary);">Tipo match</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr th:each="g : ${resultado.matched}"
-                                        style="border-top: 1px solid var(--border-color);">
-                                        <td style="padding: 12px 16px;">
-                                            <div style="font-weight: 500;" th:text="${g.nombreExterno}"></div>
-                                            <div style="font-size: 0.8rem; color: var(--text-secondary);" th:text="${g.concentracionExterna}"></div>
-                                        </td>
-                                        <td style="padding: 12px 16px; color: #059669; font-weight: 500;" th:text="${g.nombreInterno}"></td>
-                                        <td style="padding: 12px 16px; text-align: center;" th:text="${#lists.size(g.lotes)}"></td>
-                                        <td style="padding: 12px 16px; text-align: center;">
-                                            <span th:if="${g.tipoMatch == 'AUTO'}"
-                                                  style="background: #dbeafe; color: #1d4ed8; font-size: 0.75rem; padding: 3px 10px; border-radius: 20px;">Auto</span>
-                                            <span th:if="${g.tipoMatch == 'EQUIVALENCIA'}"
-                                                  style="background: #ede9fe; color: #6d28d9; font-size: 0.75rem; padding: 3px 10px; border-radius: 20px;">Guardado</span>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+                <button id="btnPrevisualizar" onclick="previsualizar()"
+                        style="margin-top: 18px; width: 100%; padding: 13px; background: var(--primary); color: white;
+                               border: none; border-radius: 10px; font-size: .97rem; font-weight: 600; cursor: pointer;">
+                    Previsualizar
+                </button>
+            </div>
+        </div>
 
-                    <!-- Sección: requieren revisión manual -->
-                    <div th:if="${!#lists.isEmpty(resultado.unmatched)}" style="margin-bottom: 32px;">
-                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 14px;">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                            <h3 style="margin: 0; color: #d97706; font-size: 1rem;">Requieren asignación manual</h3>
-                            <span style="background: #fef3c7; color: #92400e; font-size: 0.75rem; padding: 2px 10px; border-radius: 20px; font-weight: 600;"
-                                  th:text="${#lists.size(resultado.unmatched)} + ' medicamentos'"></span>
-                        </div>
-                        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 14px;">
-                            Seleccioná el medicamento del sistema que corresponde a cada nombre del Excel. Si no corresponde a ninguno, dejá "Ignorar".
-                        </p>
-                        <div style="background: var(--card-bg); border-radius: 12px; overflow: hidden; border: 1px solid var(--border-color);">
-                            <table class="data-table" style="width: 100%; border-collapse: collapse;">
-                                <thead>
-                                    <tr style="background: var(--table-header-bg);">
-                                        <th style="padding: 12px 16px; text-align: left; font-size: 0.8rem; color: var(--text-secondary);">Excel (nombre externo)</th>
-                                        <th style="padding: 12px 16px; text-align: center; font-size: 0.8rem; color: var(--text-secondary);">Lotes</th>
-                                        <th style="padding: 12px 16px; text-align: left; font-size: 0.8rem; color: var(--text-secondary);">Asignar a medicamento del sistema</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr th:each="g, iter : ${resultado.unmatched}"
-                                        style="border-top: 1px solid var(--border-color);">
-                                        <td style="padding: 12px 16px;">
-                                            <div style="font-weight: 500;" th:text="${g.nombreExterno}"></div>
-                                            <div style="font-size: 0.8rem; color: var(--text-secondary);" th:text="${g.concentracionExterna}"></div>
-                                        </td>
-                                        <td style="padding: 12px 16px; text-align: center;" th:text="${#lists.size(g.lotes)}"></td>
-                                        <td style="padding: 12px 16px;">
-                                            <select th:name="'manual_' + ${iter.index}"
-                                                    style="width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--input-bg); color: var(--text-primary); font-size: 0.85rem;">
-                                                <option value="-1">— Ignorar —</option>
-                                                <option th:each="med : ${medicamentos}"
-                                                        th:value="${med.id}"
-                                                        th:text="${med.nombre} + ' ' + ${med.concentracion}">
-                                                </option>
-                                            </select>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+        <!-- ── PASO 2: Preview ─────────────────────────────────────────── -->
+        <div id="step2" style="display:none;">
 
-                    <!-- Botones de acción -->
-                    <div style="display: flex; gap: 12px; margin-top: 8px;">
-                        <button type="submit"
-                                style="padding: 12px 28px; background: var(--primary); color: white; border: none; border-radius: 10px; font-size: 0.95rem; font-weight: 600; cursor: pointer;">
-                            Confirmar importación
-                        </button>
-                        <a href="/importacion/cancelar"
-                           style="padding: 12px 24px; background: var(--card-bg); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 10px; font-size: 0.95rem; text-decoration: none; font-weight: 500;">
-                            Cancelar y volver
-                        </a>
-                    </div>
+            <!-- Resumen stats -->
+            <div id="statsGrid" class="stats-grid"
+                 style="grid-template-columns: repeat(auto-fit, minmax(180px,1fr)); margin-bottom: 28px;"></div>
 
-                </form>
+            <!-- Matches automáticos -->
+            <div id="secMatches" style="margin-bottom: 32px; display:none;">
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+                         fill="none" stroke="#059669" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                    <h3 style="margin:0; color:#059669; font-size:.97rem;">Match automático</h3>
+                    <span id="badgeMatches" style="background:#d1fae5; color:#065f46; font-size:.75rem; padding:2px 10px; border-radius:20px; font-weight:600;"></span>
+                </div>
+                <div style="background:var(--card-bg); border-radius:12px; overflow:hidden; border:1px solid var(--border-color);">
+                    <table style="width:100%; border-collapse:collapse;">
+                        <thead>
+                            <tr style="background:var(--table-header-bg);">
+                                <th style="padding:10px 14px; text-align:left; font-size:.78rem; color:var(--text-secondary); font-weight:600;">Aplicar</th>
+                                <th style="padding:10px 14px; text-align:left; font-size:.78rem; color:var(--text-secondary); font-weight:600;">Excel (externo)</th>
+                                <th style="padding:10px 14px; text-align:left; font-size:.78rem; color:var(--text-secondary); font-weight:600;">Sistema interno</th>
+                                <th style="padding:10px 14px; text-align:center; font-size:.78rem; color:var(--text-secondary); font-weight:600;">Stock actual → nuevo</th>
+                                <th style="padding:10px 14px; text-align:center; font-size:.78rem; color:var(--text-secondary); font-weight:600;">Lotes</th>
+                                <th style="padding:10px 14px; text-align:center; font-size:.78rem; color:var(--text-secondary); font-weight:600;">Tipo</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbodyMatches"></tbody>
+                    </table>
+                </div>
             </div>
 
-        </div>
-    </main>
+            <!-- Pendientes -->
+            <div id="secPendientes" style="margin-bottom: 32px; display:none;">
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+                         fill="none" stroke="#d97706" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                    </svg>
+                    <h3 style="margin:0; color:#d97706; font-size:.97rem;">Requieren asignación manual</h3>
+                    <span id="badgePendientes" style="background:#fef3c7; color:#92400e; font-size:.75rem; padding:2px 10px; border-radius:20px; font-weight:600;"></span>
+                </div>
+                <p style="font-size:.85rem; color:var(--text-secondary); margin-bottom:14px;">
+                    Seleccioná el medicamento del sistema que corresponde a cada nombre externo. Podés guardar la asociación para que la próxima importación sea automática.
+                </p>
+                <div id="listPendientes"></div>
+            </div>
 
-    <script>
-        function showFileName(input) {
-            const label = document.getElementById('fileName');
-            label.textContent = input.files.length > 0 ? input.files[0].name : 'Ningún archivo seleccionado';
-        }
-    </script>
+            <!-- Sin match -->
+            <div id="secSinMatch" style="margin-bottom: 80px; display:none;">
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+                         fill="none" stroke="#6b7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                    <h3 style="margin:0; color:var(--text-secondary); font-size:.97rem;">Sin coincidencia</h3>
+                    <span id="badgeSinMatch" style="background:var(--border-color); color:var(--text-secondary); font-size:.75rem; padding:2px 10px; border-radius:20px; font-weight:600;"></span>
+                </div>
+                <p style="font-size:.85rem; color:var(--text-secondary); margin-bottom:14px;">
+                    Estos ítems no tienen ningún candidato cercano. No se actualizarán. Podés agregarlos manualmente al sistema si corresponde.
+                </p>
+                <div id="listSinMatch"></div>
+            </div>
+
+            <!-- Footer fijo -->
+            <div style="position:sticky; bottom:0; background:var(--card-bg); border-top:1px solid var(--border-color);
+                        padding:14px 24px; display:flex; align-items:center; justify-content:space-between; gap:16px;
+                        border-radius:0 0 16px 16px; z-index:10;">
+                <div id="summaryFooter" style="font-size:.88rem; color:var(--text-secondary); display:flex; gap:20px; flex-wrap:wrap;"></div>
+                <div style="display:flex; gap:10px;">
+                    <button onclick="cancelar()"
+                            style="padding:10px 20px; background:transparent; color:var(--text-secondary);
+                                   border:1px solid var(--border-color); border-radius:9px; cursor:pointer; font-size:.9rem;">
+                        Cancelar
+                    </button>
+                    <button id="btnConfirmar" onclick="confirmar()"
+                            style="padding:10px 22px; background:var(--primary); color:white;
+                                   border:none; border-radius:9px; cursor:pointer; font-size:.9rem; font-weight:600;">
+                        Confirmar importación
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── PASO 3: Resultado ───────────────────────────────────────── -->
+        <div id="step3" style="display:none;">
+            <div style="max-width: 560px;">
+                <div style="text-align:center; margin-bottom:32px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 24 24"
+                         fill="none" stroke="#059669" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                        <polyline points="22 4 12 14.01 9 11.01"/>
+                    </svg>
+                    <h2 style="margin:16px 0 6px; color:var(--text-primary);">Importación completada</h2>
+                    <p style="color:var(--text-secondary); font-size:.9rem; margin:0;">El stock fue actualizado y las alertas verificadas.</p>
+                </div>
+                <div id="resultadoStats" class="stats-grid"
+                     style="grid-template-columns: repeat(2, 1fr); gap:14px; margin-bottom:28px;"></div>
+                <button onclick="nueva()"
+                        style="width:100%; padding:12px; background:var(--primary); color:white; border:none;
+                               border-radius:10px; font-size:.97rem; font-weight:600; cursor:pointer;">
+                    Realizar otra importación
+                </button>
+            </div>
+        </div>
+
+    </div><!-- end margin-top -->
+</main>
+
+<script>
+// ── Estado ────────────────────────────────────────────────────────────────────
+let _archivo = null;
+let _preview  = null;
+
+// ── Utilidades de UI ──────────────────────────────────────────────────────────
+function showStep(n) {
+    [1,2,3].forEach(i => {
+        document.getElementById('step' + i).style.display = i === n ? '' : 'none';
+    });
+}
+
+function badge(tipo) {
+    const map = {
+        EQUIVALENCIA: ['background:#ede9fe; color:#6d28d9', 'Guardado'],
+        EXACTO:       ['background:#dbeafe; color:#1d4ed8', 'Exacto'],
+        NOMBRE:       ['background:#fef9c3; color:#854d0e', 'Solo nombre'],
+    };
+    const [style, label] = map[tipo] || ['background:var(--border-color); color:var(--text-secondary)', tipo];
+    return `<span style="font-size:.72rem; padding:2px 8px; border-radius:20px; ${style}">${label}</span>`;
+}
+
+function formatFecha(f) {
+    if (!f) return '—';
+    return new Date(f).toLocaleDateString('es-AR');
+}
+
+function updateSummary(preview) {
+    const checks = document.querySelectorAll('.match-chk:checked').length;
+    const resueltos = [...document.querySelectorAll('.pendiente-sel')]
+        .filter(s => s.value && s.value !== '-1').length;
+    document.getElementById('summaryFooter').innerHTML = `
+        <span><strong style="color:#059669">${checks}</strong> matches a aplicar</span>
+        <span><strong style="color:#d97706">${resueltos}</strong> de ${preview.pendientes.length} pendientes resueltos</span>
+        <span style="color:var(--text-secondary)">${preview.sinMatch.length} sin coincidencia (ignorados)</span>
+    `;
+}
+
+// ── Paso 1: archivo ───────────────────────────────────────────────────────────
+function setArchivo(f) {
+    _archivo = f;
+    document.getElementById('fileName').textContent = f ? f.name : 'Ningún archivo seleccionado';
+    document.getElementById('uploadError').style.display = 'none';
+}
+
+function handleDrop(e) {
+    const f = e.dataTransfer.files[0];
+    if (f) setArchivo(f);
+}
+
+async function previsualizar() {
+    if (!_archivo) { showError('Seleccioná un archivo primero.'); return; }
+
+    const btn = document.getElementById('btnPrevisualizar');
+    btn.disabled = true; btn.textContent = 'Procesando…';
+
+    const fd = new FormData();
+    fd.append('archivo', _archivo);
+    fd.append('_csrf', CSRF_TOKEN);
+
+    try {
+        const resp = await fetch('/api/importacion/preview', { method: 'POST', body: fd });
+        const data = await resp.json();
+        if (!resp.ok) { showError(data.error || 'Error al procesar el archivo.'); return; }
+        _preview = data;
+        renderPreview(data);
+        showStep(2);
+    } catch (e) {
+        showError('Error de red: ' + e.message);
+    } finally {
+        btn.disabled = false; btn.textContent = 'Previsualizar';
+    }
+}
+
+function showError(msg) {
+    const el = document.getElementById('uploadError');
+    el.textContent = msg; el.style.display = '';
+}
+
+// ── Paso 2: render preview ────────────────────────────────────────────────────
+function renderPreview(data) {
+    // Stats
+    document.getElementById('statsGrid').innerHTML = `
+        <div class="stat-card success"><h3>Match automático</h3><div class="value">${data.matches.length}</div><small>Se actualizan directo</small></div>
+        <div class="stat-card warning"><h3>Revisión manual</h3><div class="value">${data.pendientes.length}</div><small>Requieren asignación</small></div>
+        <div class="stat-card"><h3>Sin coincidencia</h3><div class="value">${data.sinMatch.length}</div><small>Se ignorarán</small></div>
+        <div class="stat-card"><h3>Total grupos</h3><div class="value">${data.totalGrupos}</div><small>Medicamentos en Excel</small></div>
+    `;
+
+    // Matches
+    const secM = document.getElementById('secMatches');
+    if (data.matches.length > 0) {
+        document.getElementById('badgeMatches').textContent = data.matches.length + ' medicamentos';
+        document.getElementById('tbodyMatches').innerHTML = data.matches.map(m => `
+            <tr style="border-top:1px solid var(--border-color);">
+                <td style="padding:10px 14px; text-align:center;">
+                    <input type="checkbox" class="match-chk" data-indice="${m.indiceEnMatches}"
+                           checked onchange="updateSummary(_preview)"
+                           style="width:16px; height:16px; cursor:pointer; accent-color:var(--primary);">
+                </td>
+                <td style="padding:10px 14px;">
+                    <div style="font-weight:500; font-size:.88rem;">${esc(m.nombreExterno)}</div>
+                    <div style="font-size:.78rem; color:var(--text-secondary);">${esc(m.concExterna || '—')}</div>
+                </td>
+                <td style="padding:10px 14px; font-size:.88rem;">
+                                            <div style="font-weight:500;color:#059669;">${esc(m.nombreInterno)} ${esc(m.concInterna||'')}</div>
+                                            ${m.codigoSiciap ? `<div style="font-family:monospace;font-size:.76rem;color:var(--text-secondary);">SICIAP: ${esc(m.codigoSiciap)}</div>` : ''}
+                                        </td>
+                <td style="padding:10px 14px; text-align:center; font-size:.88rem;">
+                    ${m.stockActual} <span style="color:var(--text-secondary)">→</span>
+                    <strong style="${m.stockNuevo < m.stockActual ? 'color:#dc2626' : 'color:#059669'}">${m.stockNuevo}</strong>
+                </td>
+                <td style="padding:10px 14px; text-align:center; font-size:.88rem;">${m.lotes.length}</td>
+                <td style="padding:10px 14px; text-align:center;">${badge(m.tipoMatch)}</td>
+            </tr>
+        `).join('');
+        secM.style.display = '';
+    } else {
+        secM.style.display = 'none';
+    }
+
+    // Pendientes
+    const secP = document.getElementById('secPendientes');
+    if (data.pendientes.length > 0) {
+        document.getElementById('badgePendientes').textContent = data.pendientes.length + ' medicamentos';
+        document.getElementById('listPendientes').innerHTML = data.pendientes.map(p => {
+            const opts = MEDICAMENTOS.map(m =>
+                `<option value="${m.id}">${esc(m.nombre)}${m.concentracion ? ' ' + esc(m.concentracion) : ''}</option>`
+            ).join('');
+            const cands = p.candidatos.map(c =>
+                `<span style="font-size:.78rem; padding:3px 9px; border-radius:16px; background:var(--border-color); color:var(--text-secondary); cursor:pointer;"
+                       onclick="document.getElementById('psel_${p.indiceEnPendientes}').value='${c.medicamentoId}'; updateSummary(_preview);">
+                    ${esc(c.nombre)} ${c.concentracion ? esc(c.concentracion) : ''} (${c.score}%)
+                </span>`
+            ).join(' ');
+
+            return `
+            <div style="background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px; padding:16px 20px; margin-bottom:10px;">
+                <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start; justify-content:space-between;">
+                    <div>
+                        <div style="font-weight:600; font-size:.9rem;">${esc(p.nombreExterno)}</div>
+                        <div style="font-size:.8rem; color:var(--text-secondary);">${esc(p.concExterna || '—')} · ${p.lotes.length} lote(s)</div>
+                        ${p.candidatos.length > 0 ? `<div style="margin-top:8px; display:flex; flex-wrap:wrap; gap:6px;">
+                            <span style="font-size:.78rem; color:var(--text-secondary);">Candidatos:</span>${cands}
+                        </div>` : ''}
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:8px; min-width:260px;">
+                        <select id="psel_${p.indiceEnPendientes}" class="pendiente-sel"
+                                data-indice="${p.indiceEnPendientes}"
+                                onchange="updateSummary(_preview)"
+                                style="padding:8px 10px; border-radius:8px; border:1px solid var(--border-color);
+                                       background:var(--input-bg); color:var(--text-primary); font-size:.85rem;">
+                            <option value="-1">— Ignorar —</option>
+                            ${opts}
+                        </select>
+                        <label style="display:flex; align-items:center; gap:8px; font-size:.82rem; color:var(--text-secondary); cursor:pointer;">
+                            <input type="checkbox" id="pguardar_${p.indiceEnPendientes}" style="accent-color:var(--primary);">
+                            Guardar equivalencia para próximas importaciones
+                        </label>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+        secP.style.display = '';
+    } else {
+        secP.style.display = 'none';
+    }
+
+    // Sin match
+    const secS = document.getElementById('secSinMatch');
+    if (data.sinMatch.length > 0) {
+        document.getElementById('badgeSinMatch').textContent = data.sinMatch.length + ' ítems';
+        document.getElementById('listSinMatch').innerHTML = `
+            <div style="background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px; overflow:hidden;">
+                <table style="width:100%; border-collapse:collapse;">
+                    <tbody>
+                        ${data.sinMatch.map(s => `
+                        <tr style="border-top:1px solid var(--border-color); opacity:.6;">
+                            <td style="padding:10px 16px; font-size:.88rem;">${esc(s.nombreExterno)}</td>
+                            <td style="padding:10px 16px; font-size:.82rem; color:var(--text-secondary);">${esc(s.concExterna || '—')}</td>
+                            <td style="padding:10px 16px; font-size:.82rem; color:var(--text-secondary); text-align:center;">${s.lotes.length} lote(s)</td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table>
+            </div>`;
+        secS.style.display = '';
+    } else {
+        secS.style.display = 'none';
+    }
+
+    updateSummary(data);
+}
+
+function esc(s) {
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Paso 2: confirmar ─────────────────────────────────────────────────────────
+async function confirmar() {
+    const matchesSeleccionados = [...document.querySelectorAll('.match-chk:checked')]
+        .map(cb => parseInt(cb.dataset.indice));
+
+    const resoluciones = [...document.querySelectorAll('.pendiente-sel')]
+        .filter(s => s.value && s.value !== '-1')
+        .map(s => ({
+            indice: parseInt(s.dataset.indice),
+            medicamentoId: parseInt(s.value),
+            guardarEquivalencia: document.getElementById('pguardar_' + s.dataset.indice)?.checked || false
+        }));
+
+    const btn = document.getElementById('btnConfirmar');
+    btn.disabled = true; btn.textContent = 'Procesando…';
+
+    try {
+        const resp = await fetch('/api/importacion/confirmar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', [CSRF_HEADER]: CSRF_TOKEN },
+            body: JSON.stringify({ matchesSeleccionados, resoluciones })
+        });
+        const data = await resp.json();
+        if (!resp.ok) { alert(data.error || 'Error al confirmar.'); return; }
+        renderResultado(data);
+        showStep(3);
+    } catch (e) {
+        alert('Error de red: ' + e.message);
+    } finally {
+        btn.disabled = false; btn.textContent = 'Confirmar importación';
+    }
+}
+
+function cancelar() {
+    if (confirm('¿Cancelar la importación? Los cambios no se guardarán.')) {
+        _preview = null; _archivo = null;
+        document.getElementById('fileName').textContent = 'Ningún archivo seleccionado';
+        showStep(1);
+    }
+}
+
+// ── Paso 3 ────────────────────────────────────────────────────────────────────
+function renderResultado(r) {
+    document.getElementById('resultadoStats').innerHTML = `
+        <div class="stat-card success"><h3>Medicamentos</h3><div class="value">${r.medicamentosActualizados}</div><small>Actualizados</small></div>
+        <div class="stat-card"><h3>Lotes creados</h3><div class="value">${r.lotesCreados}</div><small>Nuevos lotes</small></div>
+        <div class="stat-card"><h3>Lotes actualizados</h3><div class="value">${r.lotesActualizados}</div><small>Stock modificado</small></div>
+        <div class="stat-card warning"><h3>Alertas activas</h3><div class="value">${r.alertasActivas}</div><small>Tras la importación</small></div>
+        ${r.equivalenciasGuardadas > 0 ? `<div class="stat-card" style="grid-column:1/-1; text-align:center;">
+            <h3>Equivalencias guardadas</h3><div class="value">${r.equivalenciasGuardadas}</div>
+            <small>La próxima importación será automática para estos ítems</small>
+        </div>` : ''}
+    `;
+}
+
+function nueva() {
+    _preview = null; _archivo = null;
+    document.getElementById('fileName').textContent = 'Ningún archivo seleccionado';
+    document.getElementById('archivoInput').value = '';
+    document.getElementById('uploadError').style.display = 'none';
+    showStep(1);
+}
+</script>
 
 </body>
 </html>

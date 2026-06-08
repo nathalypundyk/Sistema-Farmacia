@@ -1,104 +1,90 @@
 package sistema_farmacia.demo.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import sistema_farmacia.demo.model.ImportacionLog;
+import sistema_farmacia.demo.repository.ImportacionLogRepository;
 import sistema_farmacia.demo.repository.MedicamentoRepository;
 import sistema_farmacia.demo.service.ImportacionService;
 import sistema_farmacia.demo.service.ImportacionService.*;
 
-import java.util.ArrayList;
+import java.security.Principal;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Controller
-@RequestMapping("/importacion")
 public class ImportacionController {
 
     @Autowired private ImportacionService importacionService;
     @Autowired private MedicamentoRepository medicamentoRepo;
+    @Autowired private ObjectMapper objectMapper;
+    @Autowired private ImportacionLogRepository importacionLogRepo;
 
     private static final String SESSION_KEY = "importPreview";
 
-    @GetMapping
-    public String mostrar(HttpSession session, Model model) {
-        ResultadoPreview preview = (ResultadoPreview) session.getAttribute(SESSION_KEY);
-        if (preview != null) {
-            model.addAttribute("resultado", preview);
-        }
-        model.addAttribute("medicamentos", medicamentoRepo.findAll());
+    // ── Página ───────────────────────────────────────────────────────────────
+
+    @GetMapping("/importacion")
+    public String pagina(Model model) throws Exception {
+        List<Map<String, Object>> meds = medicamentoRepo.findAll().stream()
+                .map(m -> Map.<String, Object>of(
+                        "id", m.getId(),
+                        "nombre", m.getNombre() != null ? m.getNombre() : "",
+                        "concentracion", m.getConcentracion() != null ? m.getConcentracion() : ""))
+                .collect(Collectors.toList());
+        model.addAttribute("medicamentosJson", objectMapper.writeValueAsString(meds));
         return "importacion";
     }
 
-    @PostMapping("/preview")
-    public String preview(@RequestParam("archivo") MultipartFile archivo,
-                          HttpSession session, Model model) {
-        if (archivo.isEmpty()) {
-            model.addAttribute("error", "Por favor seleccioná un archivo Excel.");
-            model.addAttribute("medicamentos", medicamentoRepo.findAll());
-            return "importacion";
-        }
+    // ── REST: preview ────────────────────────────────────────────────────────
+
+    @PostMapping("/api/importacion/preview")
+    @ResponseBody
+    public ResponseEntity<?> preview(@RequestParam("archivo") MultipartFile archivo,
+                                     HttpSession session) {
+        if (archivo.isEmpty())
+            return ResponseEntity.badRequest().body(Map.of("error", "No se recibió ningún archivo."));
         try {
-            ResultadoPreview resultado = importacionService.procesarExcel(archivo);
+            PreviewResponse resultado = importacionService.procesarExcel(archivo);
             session.setAttribute(SESSION_KEY, resultado);
-            model.addAttribute("resultado", resultado);
+            return ResponseEntity.ok(resultado);
         } catch (Exception e) {
-            model.addAttribute("error", "Error al procesar el archivo: " + e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
-        model.addAttribute("medicamentos", medicamentoRepo.findAll());
-        return "importacion";
     }
 
-    @PostMapping("/confirmar")
-    public String confirmar(@RequestParam Map<String, String> params,
-                            HttpSession session, Model model) {
-        ResultadoPreview preview = (ResultadoPreview) session.getAttribute(SESSION_KEY);
-        if (preview == null) {
-            model.addAttribute("error", "La sesión expiró. Por favor volvé a subir el archivo.");
-            model.addAttribute("medicamentos", medicamentoRepo.findAll());
-            return "importacion";
-        }
+    // ── REST: confirmar ──────────────────────────────────────────────────────
 
-        // Construir lista completa: matched + unmatched con asignaciones manuales
-        List<GrupoMedicamento> grupos = new ArrayList<>(preview.matched);
-
-        for (int i = 0; i < preview.unmatched.size(); i++) {
-            GrupoMedicamento g = preview.unmatched.get(i);
-            String medIdStr = params.get("manual_" + i);
-            if (medIdStr != null && !medIdStr.isEmpty() && !medIdStr.equals("-1")) {
-                try {
-                    g.medicamentoId = Long.parseLong(medIdStr);
-                    g.tipoMatch = "MANUAL";
-                } catch (NumberFormatException ignored) {}
-            }
-            grupos.add(g);
-        }
-
+    @PostMapping("/api/importacion/confirmar")
+    @ResponseBody
+    public ResponseEntity<?> confirmar(@RequestBody ConfirmarRequest req,
+                                       HttpSession session,
+                                       Principal principal) {
+        PreviewResponse preview = (PreviewResponse) session.getAttribute(SESSION_KEY);
+        if (preview == null)
+            return ResponseEntity.status(410).body(Map.of("error", "Sesión expirada. Volvé a subir el archivo."));
         try {
-            int lotesActualizados = importacionService.confirmarImportacion(grupos);
+            String usuario = principal != null ? principal.getName() : "sistema";
+            ResultadoConfirmacion resultado = importacionService.confirmar(preview, req, usuario);
+            importacionLogRepo.save(ImportacionLog.builder()
+                    .usuario(usuario)
+                    .tipo("STOCK")
+                    .totalItems(preview.totalGrupos)
+                    .aplicados(resultado.medicamentosActualizados)
+                    .equivalenciasGuardadas(resultado.equivalenciasGuardadas)
+                    .medicamentosCreados(0)
+                    .build());
             session.removeAttribute(SESSION_KEY);
-
-            long sinAsignar = preview.unmatched.stream()
-                    .filter(g -> g.medicamentoId == null).count();
-
-            model.addAttribute("exito", "Importación completada: " + lotesActualizados
-                    + " lote(s) actualizados/creados."
-                    + (sinAsignar > 0 ? " " + sinAsignar + " medicamento(s) sin asignar fueron ignorados." : ""));
+            return ResponseEntity.ok(resultado);
         } catch (Exception e) {
-            model.addAttribute("error", "Error al confirmar la importación: " + e.getMessage());
-            model.addAttribute("resultado", preview);
+            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
         }
-
-        model.addAttribute("medicamentos", medicamentoRepo.findAll());
-        return "importacion";
-    }
-
-    @GetMapping("/cancelar")
-    public String cancelar(HttpSession session) {
-        session.removeAttribute(SESSION_KEY);
-        return "redirect:/importacion";
     }
 }

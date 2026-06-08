@@ -1,95 +1,332 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{layout/main :: head('Configuración - HGS')}"></head>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head th:replace="~{layout/main :: head('Configuración de Stock')}"></head>
 <body>
 
-    <aside th:replace="~{layout/main :: sidebar('config')}"></aside>
+<aside th:replace="~{layout/main :: sidebar('config')}"></aside>
 
-    <main class="main-content">
-        <header th:replace="~{layout/main :: header('Configuración de Stock Inteligente')}"></header>
+<main class="main-content">
+    <header th:replace="~{layout/main :: header('Configuración de Stock Mínimo')}"></header>
 
-        <section style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: start;">
-            <div class="table-container" style="padding: 30px;">
-                <h2 class="section-title" style="margin-bottom: 24px;">⚙️ Ajuste de Parámetros</h2>
-                <form th:action="@{/config/save}" method="post">
-                    <div class="form-group">
-                        <label>Medicamento a configurar</label>
-                        <select name="medicamentoId" class="form-control" required>
-                            <option value="">Seleccione un medicamento...</option>
-                            <option th:each="med : ${medicamentos}" 
-                                    th:value="${med.id}" 
-                                    th:text="${med.nombre} + ' (' + ${med.codigo} + ')'"></option>
-                        </select>
-                    </div>
+    <script th:inline="javascript">
+        /*<![CDATA[*/
+        const CSRF_TOKEN  = /*[[${_csrf.token}]]*/ '';
+        const CSRF_HEADER = /*[[${_csrf.headerName}]]*/ 'X-CSRF-TOKEN';
+        const MEDS_DATA   = JSON.parse(/*[[${medicamentosJson}]]*/ '[]');
+        /*]]>*/
+    </script>
 
-                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
-                        <div class="form-group">
-                            <label>Stock Mínimo</label>
-                            <input type="number" name="minimo" class="form-control" placeholder="3000">
-                        </div>
-                        <div class="form-group">
-                            <label>Stock Deseable</label>
-                            <input type="number" name="deseable" class="form-control" placeholder="5000">
-                        </div>
-                        <div class="form-group">
-                            <label>Recomendado</label>
-                            <input type="number" name="recomendado" class="form-control" placeholder="4500" readonly style="background: #f8fafc; cursor: not-allowed;">
-                        </div>
-                    </div>
-                    
-                    <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 20px;">
-                        <em>* El stock recomendado se calcula automáticamente basado en el consumo promedio diario.</em>
-                    </p>
+    <div style="margin-top: 24px;">
 
-                    <div class="form-group">
-                        <label>Unidades por Blister</label>
-                        <input type="number" name="unidadesPorBlister" class="form-control" placeholder="10">
-                    </div>
+        <!-- Barra superior sticky -->
+        <div id="topBar" style="position:sticky; top:0; z-index:20; background:var(--card-bg);
+                    border:1px solid var(--border-color); border-radius:12px; padding:14px 20px;
+                    margin-bottom:16px; display:flex; gap:12px; align-items:center; flex-wrap:wrap;
+                    box-shadow:0 2px 8px rgba(0,0,0,0.06);">
 
-                    <div class="form-group">
-                        <label>PIN de Autorización Digital</label>
-                        <input type="password" name="pin" class="form-control" required placeholder="****">
-                    </div>
-
-                    <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">
-                        💾 Guardar Cambios e Inteligencia
-                    </button>
-                </form>
+            <!-- Búsqueda -->
+            <div style="position:relative; flex:1; min-width:200px;">
+                <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#94a3b8;"
+                     xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                     fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+                <input id="buscar" type="text" placeholder="Buscar medicamento..."
+                       oninput="renderTabla()"
+                       style="width:100%; padding:8px 8px 8px 32px; border:1px solid var(--border-color);
+                              border-radius:8px; background:var(--input-bg,#f8fafc); color:var(--text-primary);
+                              font-size:.88rem; box-sizing:border-box; outline:none;">
             </div>
 
-            <div class="table-container">
-                <div class="table-header">
-                    <h3 style="font-size: 1rem; font-weight: 600;">📊 Niveles de Stock Actuales</h3>
-                </div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Medicamento</th>
-                            <th>Mín.</th>
-                            <th>Stock</th>
-                            <th>Estado</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr th:each="med : ${medicamentos}">
-                            <td>
-                                <div style="font-weight: 500;" th:text="${med.nombre}">Ibuprofeno</div>
-                                <div style="font-size: 0.75rem; color: var(--text-secondary);" th:text="${med.codigo}">COD-123</div>
-                            </td>
-                            <td th:text="${med.minimo}">3000</td>
-                            <td th:text="${med.stockTotal}">2450</td>
-                            <td>
-                                <span th:text="${med.stockBajo} ? 'CRÍTICO' : 'ÓPTIMO'" 
-                                      class="badge" 
-                                      th:classappend="${med.stockBajo} ? 'badge-danger' : 'badge-success'">ÓPTIMO</span>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </section>
-    </main>
+            <!-- Filtro -->
+            <select id="filtro" onchange="renderTabla()"
+                    style="padding:8px 12px; border:1px solid var(--border-color); border-radius:8px;
+                           background:var(--input-bg,#f8fafc); color:var(--text-primary); font-size:.88rem; cursor:pointer;">
+                <option value="todos">Todos</option>
+                <option value="sin_configurar">Sin mínimo configurado</option>
+                <option value="criticos">Stock crítico / agotado</option>
+                <option value="ok">Stock OK</option>
+            </select>
 
+            <span id="contadorFiltro" style="font-size:.82rem; color:var(--text-secondary); white-space:nowrap;"></span>
+            <span style="flex:1;"></span>
+
+            <!-- Cambios pendientes -->
+            <span id="badgeCambios" style="display:none; padding:5px 12px; background:#fef3c7; color:#92400e;
+                                           border-radius:20px; font-size:.82rem; font-weight:600;"></span>
+
+            <!-- ── Recomendación inteligente ── -->
+            <div style="border-left:1px solid var(--border-color); padding-left:12px;">
+                <button id="btnRecomendar" onclick="autoRecomendar()"
+                        title="Calcula mínimo (30 días) y deseable (90 días) basado en consumo histórico"
+                        style="padding:7px 14px; background:#0ea5e9; color:white; border:none;
+                               border-radius:8px; font-size:.84rem; font-weight:600; cursor:pointer;
+                               white-space:nowrap;">
+                    ⚡ Recomendar
+                </button>
+            </div>
+
+            <!-- PIN -->
+            <input id="pinInput" type="password" placeholder="PIN de autorización" maxlength="10"
+                   style="width:150px; padding:8px 12px; border:1px solid var(--border-color); border-radius:8px;
+                          background:var(--input-bg,#f8fafc); color:var(--text-primary); font-size:.88rem; outline:none;"
+                   onkeydown="if(event.key==='Enter') guardarTodo()">
+
+            <!-- Botón guardar -->
+            <button id="btnGuardar" onclick="guardarTodo()" disabled
+                    style="padding:9px 22px; background:var(--primary,#6366f1); color:white; border:none;
+                           border-radius:9px; font-size:.9rem; font-weight:600; cursor:pointer; opacity:.5;
+                           transition:opacity .2s;">
+                Guardar cambios
+            </button>
+        </div>
+
+        <!-- Mensaje de éxito/error -->
+        <div id="msgBar" style="display:none; padding:12px 18px; border-radius:10px; margin-bottom:14px;
+                                font-size:.88rem; font-weight:500;"></div>
+
+        <!-- Tabla -->
+        <div class="card" style="padding:0; overflow:hidden;">
+            <table style="width:100%; border-collapse:collapse; font-size:.84rem;">
+                <thead>
+                    <tr style="background:var(--table-header-bg,#f8fafc);">
+                        <th style="padding:10px 14px; text-align:left; font-size:.76rem; color:var(--text-secondary); font-weight:600;">Cód. SICIAP</th>
+                        <th style="padding:10px 14px; text-align:left; font-size:.76rem; color:var(--text-secondary); font-weight:600;">Medicamento</th>
+                        <th style="padding:10px 14px; text-align:center; font-size:.76rem; color:var(--text-secondary); font-weight:600;">Stock actual</th>
+                        <th style="padding:10px 14px; text-align:center; font-size:.76rem; color:var(--text-secondary); font-weight:600;">Mínimo</th>
+                        <th style="padding:10px 14px; text-align:center; font-size:.76rem; color:var(--text-secondary); font-weight:600;">Deseable</th>
+                        <th style="padding:10px 14px; text-align:center; font-size:.76rem; color:var(--text-secondary); font-weight:600;">Estado</th>
+                    </tr>
+                </thead>
+                <tbody id="tbodyConfig"></tbody>
+            </table>
+            <div id="sinResultados" style="display:none; text-align:center; padding:40px; color:var(--text-secondary); font-size:.9rem;">
+                No se encontraron medicamentos con ese filtro.
+            </div>
+        </div>
+    </div>
+</main>
+
+<script>
+// ── Estado ─────────────────────────────────────────────────────────────────
+const meds = MEDS_DATA.map(m => ({...m})); // copia local
+const cambios = {};        // { id: { minimo?, deseable? } }
+const recomendados = {};   // { id: RecomendacionItem } — para mostrar contexto
+
+function esc(s) {
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Render ──────────────────────────────────────────────────────────────────
+function renderTabla() {
+    const q      = document.getElementById('buscar').value.toLowerCase().trim();
+    const filtro = document.getElementById('filtro').value;
+
+    const visibles = meds.filter(m => {
+        const txt = (m.nombre + ' ' + m.concentracion + ' ' + m.codigoSiciap).toLowerCase();
+        if (q && !txt.includes(q)) return false;
+        if (filtro === 'sin_configurar') return !m.minimo || m.minimo === 0;
+        if (filtro === 'criticos')       return m.stockTotal === 0 || (m.minimo > 0 && m.stockTotal < m.minimo);
+        if (filtro === 'ok')             return m.stockTotal > 0 && (!m.minimo || m.stockTotal >= m.minimo);
+        return true;
+    });
+
+    document.getElementById('contadorFiltro').textContent = visibles.length + ' medicamento(s)';
+    document.getElementById('sinResultados').style.display = visibles.length === 0 ? '' : 'none';
+
+    const tbody = document.getElementById('tbodyConfig');
+    tbody.innerHTML = visibles.map(m => {
+        const modificado    = cambios[m.id];
+        const esRecomendado = modificado && recomendados[m.id];
+        const rowBg = esRecomendado ? 'background:#eff6ff;' : (modificado ? 'background:#fffbeb;' : '');
+        const minVal  = modificado?.minimo  !== undefined ? modificado.minimo  : (m.minimo  ?? '');
+        const desVal  = modificado?.deseable !== undefined ? modificado.deseable : (m.deseable ?? '');
+
+        const stockColor = m.stockTotal === 0 ? '#dc2626' : (m.minimo > 0 && m.stockTotal < m.minimo ? '#d97706' : '#059669');
+        const estadoBadge = m.stockTotal === 0
+            ? '<span style="font-size:.72rem;padding:2px 8px;border-radius:20px;background:#fee2e2;color:#991b1b;">AGOTADO</span>'
+            : m.minimo > 0 && m.stockTotal < m.minimo
+                ? '<span style="font-size:.72rem;padding:2px 8px;border-radius:20px;background:#ffedd5;color:#9a3412;">CRÍTICO</span>'
+                : '<span style="font-size:.72rem;padding:2px 8px;border-radius:20px;background:#dcfce7;color:#166534;">OK</span>';
+
+        const rec = recomendados[m.id];
+        const confianzaColor = { ALTA: '#059669', MEDIA: '#d97706', BAJA: '#dc2626', MUY_BAJA: '#9ca3af' };
+        const confianzaLabel = { ALTA: 'Alta', MEDIA: 'Media', BAJA: 'Baja', MUY_BAJA: 'Muy baja' };
+        const recHint = rec
+            ? `<div style="font-size:.72rem;color:${confianzaColor[rec.confianza]};margin-top:2px;">
+                   ⚡ ${rec.avgDiario}/día · ${confianzaLabel[rec.confianza]}
+               </div>`
+            : '';
+
+        return `<tr style="border-top:1px solid var(--border-color);${rowBg}" id="row_${m.id}">
+            <td style="padding:8px 14px;">
+                ${m.codigoSiciap
+                    ? `<span style="font-family:monospace;font-size:.82rem;color:#1d4ed8;">${esc(m.codigoSiciap)}</span>`
+                    : '<span style="color:var(--text-secondary);font-size:.78rem;">—</span>'}
+            </td>
+            <td style="padding:8px 14px;">
+                <div style="font-weight:500;">${esc(m.nombre)}</div>
+                ${m.concentracion ? `<div style="font-size:.78rem;color:var(--text-secondary);">${esc(m.concentracion)}</div>` : ''}
+            </td>
+            <td style="padding:8px 14px; text-align:center; font-weight:600; color:${stockColor};">
+                ${m.stockTotal}
+            </td>
+            <td style="padding:8px 14px; text-align:center;">
+                <input type="number" min="0" value="${minVal}"
+                       oninput="onCambio(${m.id}, 'minimo', this.value)"
+                       style="width:80px; padding:5px 8px; border:1px solid var(--border-color); border-radius:6px;
+                              text-align:center; font-size:.84rem; background:var(--input-bg,#f8fafc);
+                              color:var(--text-primary); outline:none;">
+                ${recHint}
+            </td>
+            <td style="padding:8px 14px; text-align:center;">
+                <input type="number" min="0" value="${desVal}"
+                       oninput="onCambio(${m.id}, 'deseable', this.value)"
+                       style="width:80px; padding:5px 8px; border:1px solid var(--border-color); border-radius:6px;
+                              text-align:center; font-size:.84rem; background:var(--input-bg,#f8fafc);
+                              color:var(--text-primary); outline:none;">
+            </td>
+            <td style="padding:8px 14px; text-align:center;">${estadoBadge}</td>
+        </tr>`;
+    }).join('');
+}
+
+// ── Tracking de cambios ──────────────────────────────────────────────────────
+function onCambio(id, campo, valor) {
+    const v = valor === '' ? null : parseInt(valor);
+    if (!cambios[id]) cambios[id] = {};
+    cambios[id][campo] = v;
+
+    // Highlight row
+    const row = document.getElementById('row_' + id);
+    if (row) row.style.background = '#fffbeb';
+
+    updateBadge();
+}
+
+function updateBadge() {
+    const n = Object.keys(cambios).length;
+    const badge = document.getElementById('badgeCambios');
+    const btn   = document.getElementById('btnGuardar');
+    if (n > 0) {
+        badge.textContent = n + ' cambio(s) sin guardar';
+        badge.style.display = '';
+        btn.disabled = false;
+        btn.style.opacity = '1';
+    } else {
+        badge.style.display = 'none';
+        btn.disabled = true;
+        btn.style.opacity = '.5';
+    }
+}
+
+// ── Guardar ──────────────────────────────────────────────────────────────────
+async function guardarTodo() {
+    const pin   = document.getElementById('pinInput').value;
+    const items = Object.entries(cambios).map(([id, vals]) => ({ id: parseInt(id), ...vals }));
+
+    if (!items.length) { showMsg('No hay cambios para guardar.', false); return; }
+    if (!pin) { showMsg('Ingresá tu PIN de autorización.', false); return; }
+
+    const btn = document.getElementById('btnGuardar');
+    btn.disabled = true; btn.textContent = 'Guardando…';
+
+    try {
+        const resp = await fetch('/api/config/bulk', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', [CSRF_HEADER]: CSRF_TOKEN },
+            body: JSON.stringify({ pin, items })
+        });
+        const data = await resp.json();
+
+        if (!resp.ok) {
+            showMsg(data.error || 'Error al guardar.', false);
+            return;
+        }
+
+        // Actualizar datos locales y limpiar cambios
+        items.forEach(item => {
+            const med = meds.find(m => m.id === item.id);
+            if (!med) return;
+            if (item.minimo  !== undefined) med.minimo  = item.minimo;
+            if (item.deseable !== undefined) med.deseable = item.deseable;
+        });
+        for (const id in cambios) delete cambios[id];
+
+        showMsg(`✅ ${data.actualizados} medicamento(s) actualizados correctamente.`, true);
+        updateBadge();
+        renderTabla();
+        document.getElementById('pinInput').value = '';
+    } catch (e) {
+        showMsg('Error de red: ' + e.message, false);
+    } finally {
+        btn.disabled = false; btn.textContent = 'Guardar cambios';
+        updateBadge();
+    }
+}
+
+// ── Recomendación inteligente ────────────────────────────────────────────────
+async function autoRecomendar() {
+    const btn = document.getElementById('btnRecomendar');
+    btn.disabled = true; btn.textContent = '⚡ Calculando…';
+
+    try {
+        const resp = await fetch('/api/config/recomendar',
+            { headers: { [CSRF_HEADER]: CSRF_TOKEN } }
+        );
+        const data = await resp.json();
+
+        if (!resp.ok) { showMsg(data.error || 'Error al calcular recomendaciones.', false); return; }
+        if (!data.length) {
+            showMsg('No hay historial de salidas suficiente para generar recomendaciones.', false);
+            return;
+        }
+
+        let aplicadas = 0;
+        const porConfianza = { ALTA: 0, MEDIA: 0, BAJA: 0, MUY_BAJA: 0 };
+
+        data.forEach(rec => {
+            recomendados[rec.id] = rec;
+            if (!cambios[rec.id]) cambios[rec.id] = {};
+            cambios[rec.id].minimo   = rec.minimoRecomendado;
+            cambios[rec.id].deseable = rec.deseableRecomendado;
+            porConfianza[rec.confianza] = (porConfianza[rec.confianza] || 0) + 1;
+            aplicadas++;
+        });
+
+        const resumen = [
+            porConfianza.ALTA     ? `${porConfianza.ALTA} alta`     : '',
+            porConfianza.MEDIA    ? `${porConfianza.MEDIA} media`   : '',
+            porConfianza.BAJA     ? `${porConfianza.BAJA} baja`     : '',
+            porConfianza.MUY_BAJA ? `${porConfianza.MUY_BAJA} muy baja` : '',
+        ].filter(Boolean).join(' · ');
+
+        showMsg(
+            `⚡ ${aplicadas} recomendaciones aplicadas (confianza: ${resumen}). Revisá los valores y guardá con tu PIN.`,
+            true
+        );
+        updateBadge();
+        renderTabla();
+    } catch (e) {
+        showMsg('Error de red: ' + e.message, false);
+    } finally {
+        btn.disabled = false; btn.textContent = '⚡ Recomendar';
+    }
+}
+
+function showMsg(msg, ok) {
+    const el = document.getElementById('msgBar');
+    el.textContent = msg;
+    el.style.display = '';
+    el.style.background = ok ? '#dcfce7' : '#fee2e2';
+    el.style.color      = ok ? '#166534' : '#991b1b';
+    el.style.border     = ok ? '1px solid #bbf7d0' : '1px solid #fecaca';
+    setTimeout(() => { el.style.display = 'none'; }, 4000);
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', renderTabla);
+</script>
 
 </body>
 </html>

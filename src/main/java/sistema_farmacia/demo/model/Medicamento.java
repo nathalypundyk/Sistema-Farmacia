@@ -2,6 +2,8 @@ package sistema_farmacia.demo.model;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.Fetch;
+import org.hibernate.annotations.FetchMode;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -21,6 +23,9 @@ public class Medicamento {
 
     @Column(unique = true)
     private String codigo;
+
+    @Column(unique = true)
+    private String codigoSiciap;
 
     private String nombre;
 
@@ -45,15 +50,14 @@ public class Medicamento {
     // Blister integrity rule
     private Integer unidadesPorBlister;
 
-    @ManyToOne
-    @JoinColumn(name = "tipo_id")
-    private TipoMedicamento tipo;
+    @Column(columnDefinition = "TEXT")
+    private String formaFarmaceutica;
 
-    @ManyToOne
-    @JoinColumn(name = "presentacion_id")
-    private Presentacion presentacion;
+    @Column(columnDefinition = "TEXT")
+    private String presentacion;
 
     @OneToMany(mappedBy = "medicamento", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    @Fetch(FetchMode.SUBSELECT)
     @Builder.Default
     private List<Lote> lotes = new ArrayList<>();
 
@@ -63,7 +67,9 @@ public class Medicamento {
     }
 
     public boolean isStockBajo() {
-        return getMinimoAjustado() != null && getStockTotal() < getMinimoAjustado();
+        if (getStockTotal() == 0) return true;
+        Integer min = getMinimoAjustado();
+        return min != null && min > 0 && getStockTotal() < min;
     }
 
     public Integer getMinimoAjustado() {
@@ -80,23 +86,20 @@ public class Medicamento {
 
     public boolean isProximoAVencer() {
         if (lotes == null) return false;
-        LocalDate hoy = LocalDate.now();
-        LocalDate limite = hoy.plusDays(30);
+        LocalDate limite = LocalDate.now().plusDays(30);
         return lotes.stream().anyMatch(lote ->
             lote.getFechaVencimiento() != null &&
-            lote.getFechaVencimiento().isAfter(hoy) &&
             lote.getFechaVencimiento().isBefore(limite)
         );
     }
 
     public java.util.List<Lote> getLotesProximosAVencer() {
         if (lotes == null) return new ArrayList<>();
-        LocalDate hoy = LocalDate.now();
-        LocalDate limite = hoy.plusDays(30);
+        LocalDate limite = LocalDate.now().plusDays(30);
         return lotes.stream()
             .filter(l -> l.getFechaVencimiento() != null &&
-                l.getFechaVencimiento().isAfter(hoy) &&
                 l.getFechaVencimiento().isBefore(limite))
+            .sorted(java.util.Comparator.comparing(Lote::getFechaVencimiento))
             .collect(java.util.stream.Collectors.toList());
     }
 }
