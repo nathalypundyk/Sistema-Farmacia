@@ -17,7 +17,8 @@ import java.util.stream.Collectors;
 public class SiciapImportService {
 
     @Autowired private MedicamentoRepository medicamentoRepo;
-    @Autowired private ImportacionService importacionService; // reutiliza normalizar() y similitud()
+    @Autowired private ImportacionService importacionService; // reutiliza normalizar()
+    @Autowired private SimilitudService similitudService;
 
     // ── DTOs ────────────────────────────────────────────────────────────────
 
@@ -158,12 +159,14 @@ public class SiciapImportService {
                     continue;
                 }
 
-                // Sin match — buscar candidatos
+                // Sin match — buscar candidatos con similitud mejorada
                 List<CandidatoSiciap> candidatos = todosMeds.stream()
                         .map(m -> new CandidatoSiciap(
                                 m.getId(), m.getNombre(), m.getConcentracion(), m.getCodigoSiciap(),
-                                importacionService.similitud(nomNorm, importacionService.normalizar(m.getNombre()))))
-                        .filter(c -> c.score >= 40)
+                                similitudService.similitudGlobal(nomNorm, concNorm,
+                                        importacionService.normalizar(m.getNombre()),
+                                        importacionService.normalizar(m.getConcentracion()))))
+                        .filter(c -> c.score >= 50)
                         .sorted((a, b) -> b.score - a.score)
                         .limit(5)
                         .collect(Collectors.toList());
@@ -236,6 +239,8 @@ public class SiciapImportService {
                         .nombre(item.nombreExterno)
                         .concentracion(conc)
                         .codigoSiciap(item.codigoSiciap)
+                        .minimo(ImportacionService.STOCK_DEFECTO)
+                        .deseable(ImportacionService.STOCK_DEFECTO)
                         .build());
                 codigosUsados.add(item.codigoSiciap);
                 res.creados++;

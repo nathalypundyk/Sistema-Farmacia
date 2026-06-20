@@ -26,6 +26,10 @@ public class ImportacionService {
     @Autowired private AlertaRepository alertaRepo;
     @Autowired private InventarioService inventarioService;
     @Autowired private sistema_farmacia.demo.repository.ConsumoHistoricoRepository consumoHistoricoRepo;
+    @Autowired private SimilitudService similitudService;
+
+    // Valor por defecto de stock mínimo/deseable al crear un medicamento nuevo
+    public static final int STOCK_DEFECTO = 100;
 
     // ── DTOs ────────────────────────────────────────────────────────────────
 
@@ -94,10 +98,12 @@ public class ImportacionService {
     public static class ConfirmarRequest implements Serializable {
         public List<Integer> matchesSeleccionados; // índices en preview.matches[]
         public List<ResolucionManual> resoluciones;
+        public boolean crearNuevos; // crear medicamentos (sin código SICIAP) para los items sinMatch
     }
 
     public static class ResultadoConfirmacion {
         public int medicamentosActualizados;
+        public int medicamentosCreados;
         public int lotesCreados;
         public int lotesActualizados;
         public int equivalenciasGuardadas;
@@ -258,11 +264,13 @@ public class ImportacionService {
                 continue;
             }
 
-            // Sin match — buscar candidatos por similitud
+            // Sin match — buscar candidatos por similitud mejorada
             List<CandidatoMatch> candidatos = todosMeds.stream()
                     .map(m -> new CandidatoMatch(m.getId(), m.getNombre(), m.getConcentracion(),
-                                                 similitud(nomNorm, normalizar(m.getNombre()))))
-                    .filter(c -> c.score >= 40)
+                                                 similitudService.similitudGlobal(
+                                                         nomNorm, concNorm,
+                                                         normalizar(m.getNombre()), normalizar(m.getConcentracion()))))
+                    .filter(c -> c.score >= 50)
                     .sorted((a, b) -> b.score - a.score)
                     .limit(5)
                     .collect(Collectors.toList());
@@ -368,6 +376,37 @@ public class ImportacionService {
                 inventarioService.verificarAlertas(med);
                 res.alertasActivas += alertaRepo.findAllByMedicamento(med).size();
                 res.medicamentosActualizados++;
+            }
+        }
+
+        // Procesar items sin coincidencia: si el usuario lo pidió, se crean como
+        // medicamentos nuevos SIN código SICIAP (no se descartan). Un futuro import
+        // SICIAP los emparejará por nombre y completará el código automáticamente.
+        if (req.crearNuevos && preview.sinMatch != null && !preview.sinMatch.isEmpty()) {
+            for (ItemSinMatch item : preview.sinMatch) {
+                String conc = (item.concExterna == null || item.concExterna.isBlank()) ? null : item.concExterna;
+
+                // Evitar duplicar si ya existe un medicamento con mismo nombre+concentración normalizados
+                String nomNorm  = normalizar(item.nombreExterno);
+                String concNorm = normalizar(conc);
+                Optional<Medicamento> yaExiste = medicamentoRepo.findAll().stream()
+                        .filter(m -> normalizar(m.getNombre()).equals(nomNorm)
+                                  && normalizar(m.getConcentracion()).equals(concNorm))
+                        .findFirst();
+
+                Medicamento med = yaExiste.orElseGet(() -> medicamentoRepo.save(Medicamento.builder()
+                        .nombre(item.nombreExterno)
+                        .concentracion(conc)
+                        .minimo(STOCK_DEFECTO)
+                        .deseable(STOCK_DEFECTO)
+                        .build()));
+
+                int stockAntes = med.getStockTotal();
+                aplicarLotes(med, item.lotes, res);
+                registrarConsumo(med, stockAntes, item.lotes.stream().mapToInt(l -> l.cantidad).sum(), hoyImport);
+                inventarioService.verificarAlertas(med);
+                if (yaExiste.isEmpty()) res.medicamentosCreados++;
+                else res.medicamentosActualizados++;
             }
         }
 

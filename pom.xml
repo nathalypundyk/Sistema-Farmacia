@@ -79,13 +79,6 @@
 			<version>5.2.5</version>
 		</dependency>
 
-		<!-- JasperReports for PDF -->
-		<dependency>
-			<groupId>net.sf.jasperreports</groupId>
-			<artifactId>jasperreports</artifactId>
-			<version>6.21.0</version>
-		</dependency>
-
 		<!-- Test -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>

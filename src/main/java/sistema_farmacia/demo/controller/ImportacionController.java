@@ -29,6 +29,11 @@ public class ImportacionController {
 
     private static final String SESSION_KEY = "importPreview";
 
+    /**
+     * Restricción: solo ADMIN y FARMACEUTICO pueden importar
+     * Está configurado en SecurityConfig
+     */
+
     // ── Página ───────────────────────────────────────────────────────────────
 
     @GetMapping("/importacion")
@@ -79,7 +84,7 @@ public class ImportacionController {
                     .totalItems(preview.totalGrupos)
                     .aplicados(resultado.medicamentosActualizados)
                     .equivalenciasGuardadas(resultado.equivalenciasGuardadas)
-                    .medicamentosCreados(0)
+                    .medicamentosCreados(resultado.medicamentosCreados)
                     .build());
             session.removeAttribute(SESSION_KEY);
             return ResponseEntity.ok(resultado);

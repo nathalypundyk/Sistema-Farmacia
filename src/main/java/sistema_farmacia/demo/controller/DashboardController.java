@@ -1,8 +1,10 @@
 package sistema_farmacia.demo.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
@@ -32,6 +34,10 @@ public class DashboardController {
     @Autowired private UsuarioRepository usuarioRepo;
     @Autowired private ObjectMapper objectMapper;
     @Autowired private ConsumoHistoricoRepository consumoHistoricoRepo;
+    @Autowired private PasswordEncoder passwordEncoder;
+
+    // Clave de sesión: el apartado de Configuración quedó desbloqueado con el PIN
+    private static final String SESSION_CONFIG_UNLOCKED = "stockConfigUnlocked";
 
     @GetMapping("/")
     public String dashboard(Model model) {
@@ -62,7 +68,7 @@ public class DashboardController {
     }
 
     @GetMapping("/config")
-    public String config(Model model) throws Exception {
+    public String config(Model model, HttpSession session) throws Exception {
         List<Medicamento> meds = medicamentoRepo.findAll();
         List<Map<String, Object>> medsJson = meds.stream().map(m -> {
             Map<String, Object> map = new LinkedHashMap<>();
@@ -76,7 +82,25 @@ public class DashboardController {
             return map;
         }).collect(Collectors.toList());
         model.addAttribute("medicamentosJson", objectMapper.writeValueAsString(medsJson));
+        model.addAttribute("pinUnlocked", Boolean.TRUE.equals(session.getAttribute(SESSION_CONFIG_UNLOCKED)));
         return "config";
+    }
+
+    // Desbloquea el apartado de Configuración para toda la sesión (PIN se pide una vez).
+    @PostMapping("/api/config/unlock")
+    @ResponseBody
+    public ResponseEntity<?> unlockConfig(@RequestBody Map<String, String> body,
+                                          Principal principal, HttpSession session) {
+        String pin = body.get("pin");
+        if (pin == null || pin.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "PIN requerido"));
+        }
+        Usuario user = usuarioRepo.findByUsername(principal.getName()).orElseThrow();
+        if (user.getPin() == null || !passwordEncoder.matches(pin, user.getPin())) {
+            return ResponseEntity.status(403).body(Map.of("error", "PIN incorrecto"));
+        }
+        session.setAttribute(SESSION_CONFIG_UNLOCKED, true);
+        return ResponseEntity.ok(Map.of("ok", true));
     }
 
     // ── DTOs bulk config ─────────────────────────────────────────────────────
@@ -147,11 +171,12 @@ public class DashboardController {
     @PostMapping("/api/config/bulk")
     @ResponseBody
     @Transactional
-    public ResponseEntity<?> saveBulk(@RequestBody BulkConfigRequest req, Principal principal) {
+    public ResponseEntity<?> saveBulk(@RequestBody BulkConfigRequest req,
+                                      Principal principal, HttpSession session) {
         try {
-            Usuario user = usuarioRepo.findByUsername(principal.getName()).orElseThrow();
-            if (user.getPin() == null || !user.getPin().equals(req.pin)) {
-                return ResponseEntity.status(403).body(Map.of("error", "PIN incorrecto"));
+            // El PIN ya se validó al entrar al apartado (desbloqueo por sesión).
+            if (!Boolean.TRUE.equals(session.getAttribute(SESSION_CONFIG_UNLOCKED))) {
+                return ResponseEntity.status(403).body(Map.of("error", "Sesión no autorizada. Ingresá tu PIN nuevamente."));
             }
             int actualizados = 0;
             for (BulkConfigRequest.ItemConfig item : req.items) {
@@ -177,9 +202,67 @@ public class DashboardController {
             return ResponseEntity.badRequest().body(Map.of("error", "PIN requerido"));
         }
         Usuario user = usuarioRepo.findByUsername(principal.getName()).orElseThrow();
-        if (user.getPin() == null || !user.getPin().equals(pin)) {
+        if (user.getPin() == null || !passwordEncoder.matches(pin, user.getPin())) {
             return ResponseEntity.status(403).body(Map.of("error", "PIN incorrecto"));
         }
+        return ResponseEntity.ok(Map.of("ok", true));
+    }
+
+    // Autoservicio: cada usuario cambia SU PIN confirmando con su contraseña de cuenta.
+    @PostMapping("/api/auth/cambiarPin")
+    @ResponseBody
+    @Transactional
+    public ResponseEntity<?> cambiarPin(@RequestBody Map<String, String> body, Principal principal) {
+        String password   = body.get("password");
+        String nuevoPin    = body.get("nuevoPin");
+        String confirmPin  = body.get("confirmPin");
+
+        if (password == null || password.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Ingresá tu contraseña."));
+        }
+        if (nuevoPin == null || !nuevoPin.matches("\\d{4,}")) {
+            return ResponseEntity.badRequest().body(Map.of("error", "El PIN debe tener al menos 4 dígitos numéricos."));
+        }
+        if (!nuevoPin.equals(confirmPin)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "El PIN nuevo y su confirmación no coinciden."));
+        }
+
+        Usuario user = usuarioRepo.findByUsername(principal.getName()).orElseThrow();
+        if (!passwordEncoder.matches(password, user.getPassword())) {
+            return ResponseEntity.status(403).body(Map.of("error", "Contraseña incorrecta."));
+        }
+
+        user.setPin(passwordEncoder.encode(nuevoPin));
+        usuarioRepo.save(user);
+        return ResponseEntity.ok(Map.of("ok", true));
+    }
+
+    // Autoservicio: cada usuario cambia SU contraseña confirmando la contraseña actual.
+    @PostMapping("/api/auth/cambiarPassword")
+    @ResponseBody
+    @Transactional
+    public ResponseEntity<?> cambiarPassword(@RequestBody Map<String, String> body, Principal principal) {
+        String actual   = body.get("passwordActual");
+        String nueva     = body.get("nuevaPassword");
+        String confirm   = body.get("confirmPassword");
+
+        if (actual == null || actual.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Ingresá tu contraseña actual."));
+        }
+        if (nueva == null || nueva.length() < 6) {
+            return ResponseEntity.badRequest().body(Map.of("error", "La nueva contraseña debe tener al menos 6 caracteres."));
+        }
+        if (!nueva.equals(confirm)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "La nueva contraseña y su confirmación no coinciden."));
+        }
+
+        Usuario user = usuarioRepo.findByUsername(principal.getName()).orElseThrow();
+        if (!passwordEncoder.matches(actual, user.getPassword())) {
+            return ResponseEntity.status(403).body(Map.of("error", "La contraseña actual es incorrecta."));
+        }
+
+        user.setPassword(passwordEncoder.encode(nueva));
+        usuarioRepo.save(user);
         return ResponseEntity.ok(Map.of("ok", true));
     }
 }

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head th:replace="~{layout/main :: head('Gestión de Medicamentos')}"></head>
 <body>
     <style>
@@ -107,7 +107,7 @@
                         Listado del inventario de medicamentos — basado en IMI Hospital.
                     </p>
                 </div>
-                <button class="btn btn-primary" onclick="openModal()" style="display: flex; align-items: center; gap: 8px;">
+                <button class="btn btn-primary" onclick="openModal()" style="display: flex; align-items: center; gap: 8px;" sec:authorize="hasRole('ADMIN')">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                     Agregar Medicamento
                 </button>
@@ -239,12 +239,12 @@
 
                                 <!-- Acciones -->
                                 <td>
-                                    <div style="display:flex; gap:8px; align-items:center;">
+                                    <div style="display:flex; gap:8px; align-items:center;" sec:authorize="hasRole('ADMIN')">
                                         <button class="btn" style="padding: 6px; background: #f1f5f9; color: #1d4ed8;" title="Editar"
                                             th:data-id="${med.id}"
                                             th:data-nombre="${med.nombre}"
                                             th:data-concentracion="${med.concentracion != null ? med.concentracion : ''}"
-                                            th:data-codigo="${med.codigo != null ? med.codigo : ''}"
+                                            th:data-codigosiciap="${med.codigoSiciap != null ? med.codigoSiciap : ''}"
                                             th:data-minimo="${med.minimo != null ? med.minimo : 0}"
                                             th:data-esprioridad="${med.esPrioridad}"
                                             th:data-eslasa="${med.esLasa}"
@@ -324,13 +324,13 @@
                     </div>
 
                     <div class="form-group">
-                        <label for="codigo">Código SICIAP</label>
-                        <input type="text" id="codigo" name="codigo" class="form-control" placeholder="Autogenerado si vacío">
+                        <label for="codigoSiciap">Código SICIAP</label>
+                        <input type="text" id="codigoSiciap" name="codigoSiciap" class="form-control" placeholder="Opcional — se puede asociar luego">
                     </div>
 
                     <div class="form-group">
                         <label for="minimo">Stock Mínimo</label>
-                        <input type="number" id="minimo" name="minimo" class="form-control" min="0" value="0">
+                        <input type="number" id="minimo" name="minimo" class="form-control" min="0" value="100">
                     </div>
 
                     <div class="form-group full-width" style="display: flex; gap: 24px; margin-top: 8px;">
@@ -373,12 +373,14 @@
                         <input type="text" id="editConcentracion" name="concentracion" class="form-control">
                     </div>
                     <div class="form-group">
-                        <label for="editCodigo">Código SICIAP</label>
-                        <input type="text" id="editCodigo" name="codigo" class="form-control">
+                        <label for="editCodigoSiciap">Código SICIAP</label>
+                        <input type="text" id="editCodigoSiciap" name="codigoSiciap" class="form-control" placeholder="Asociar código manualmente">
                     </div>
                     <div class="form-group">
-                        <label for="editMinimo">Stock Mínimo</label>
-                        <input type="number" id="editMinimo" name="minimo" class="form-control" min="0">
+                        <label for="editMinimo">Stock Mínimo <span style="color:var(--text-secondary); font-weight:normal; font-size:.78rem;">(se configura con PIN en Configuración)</span></label>
+                        <input type="number" id="editMinimo" name="minimo" class="form-control" min="0" readonly
+                               title="El stock mínimo se modifica en el apartado Configuración (requiere PIN)"
+                               style="background:#f1f5f9; cursor:not-allowed;">
                     </div>
                     <div class="form-group full-width" style="display: flex; gap: 24px; margin-top: 8px;">
                         <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: normal;">
@@ -455,7 +457,7 @@
             document.getElementById('editId').value = btn.dataset.id;
             document.getElementById('editNombre').value = btn.dataset.nombre;
             document.getElementById('editConcentracion').value = btn.dataset.concentracion;
-            document.getElementById('editCodigo').value = btn.dataset.codigo;
+            document.getElementById('editCodigoSiciap').value = btn.dataset.codigosiciap;
             document.getElementById('editMinimo').value = btn.dataset.minimo;
             document.getElementById('editEsPrioridad').checked = btn.dataset.esprioridad === 'true';
             const esLasa = btn.dataset.eslasa === 'true';

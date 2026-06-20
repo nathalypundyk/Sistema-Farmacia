@@ -24,8 +24,24 @@ public class SecurityConfig {
         http
             .authorizeHttpRequests((requests) -> requests
                 .requestMatchers("/css/**", "/js/**", "/img/**", "/h2-console/**").permitAll()
+
+                // ── Solo ADMIN: configuración crítica y administración ──────────────
                 .requestMatchers("/admin/**").hasRole("ADMIN")
-                .requestMatchers("/config/**").hasAnyRole("ADMIN", "FARMACEUTICO")
+                .requestMatchers("/config", "/api/config/**").hasRole("ADMIN")          // stock mín/deseable
+                .requestMatchers("/usuarios", "/usuarios/**").hasRole("ADMIN")          // gestión usuarios/roles
+                .requestMatchers("/auditoria").hasRole("ADMIN")
+                .requestMatchers("/importacion-siciap", "/api/importacion/siciap/**").hasRole("ADMIN") // asociación SICIAP
+
+                // ── Gestión de medicamentos (crear/editar/eliminar): solo ADMIN ────
+                .requestMatchers("/medicamentos/guardar",
+                                 "/medicamentos/actualizar",
+                                 "/medicamentos/eliminar/**").hasRole("ADMIN")
+
+                // ── Operativo: ADMIN + FARMACEUTICO ────────────────────────────────
+                .requestMatchers("/importacion", "/api/importacion/preview",
+                                 "/api/importacion/confirmar").hasAnyRole("ADMIN", "FARMACEUTICO")
+
+                // Ver catálogo, validar PIN, resto: cualquier usuario autenticado
                 .anyRequest().authenticated()
             )
             .formLogin((form) -> form
@@ -37,8 +53,8 @@ public class SecurityConfig {
                 .logoutSuccessUrl("/login?logout")
                 .permitAll()
             )
-            .csrf(csrf -> csrf.ignoringRequestMatchers("/h2-console/**")) // Solo para desarrollo
-            .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin())); // Solo para h2-console
+            .csrf(csrf -> csrf.ignoringRequestMatchers("/h2-console/**"))
+            .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()));
 
         return http.build();
     }

@@ -43,6 +43,13 @@ public class MedicamentoController {
             if (medicamento.getCodigo() == null || medicamento.getCodigo().isEmpty()) {
                 medicamento.setCodigo("MED-" + System.currentTimeMillis());
             }
+            // Normalizar código SICIAP vacío a null (la columna es única; null permite varios)
+            if (medicamento.getCodigoSiciap() != null && medicamento.getCodigoSiciap().isBlank()) {
+                medicamento.setCodigoSiciap(null);
+            }
+            // Stock mínimo/deseable por defecto: 100
+            if (medicamento.getMinimo() == null)   medicamento.setMinimo(100);
+            if (medicamento.getDeseable() == null) medicamento.setDeseable(100);
             medicamentoRepository.save(medicamento);
             return "redirect:/medicamentos?success";
         } catch (Exception e) {
@@ -55,8 +62,7 @@ public class MedicamentoController {
             @RequestParam Long id,
             @RequestParam String nombre,
             @RequestParam(required = false) String concentracion,
-            @RequestParam(required = false) String codigo,
-            @RequestParam(defaultValue = "0") Integer minimo,
+            @RequestParam(required = false) String codigoSiciap,
             @RequestParam(defaultValue = "false") boolean esPrioridad,
             @RequestParam(defaultValue = "false") boolean esLasa,
             @RequestParam(required = false) String similarA) {
@@ -64,13 +70,16 @@ public class MedicamentoController {
             Medicamento med = medicamentoRepository.findById(id).orElseThrow();
             med.setNombre(nombre);
             med.setConcentracion(concentracion);
-            if (codigo != null && !codigo.isBlank()) med.setCodigo(codigo);
-            med.setMinimo(minimo);
+            // Asociación manual de código SICIAP (vacío = quitar). NO se toca el stock mínimo aquí:
+            // eso se gestiona solo en el apartado Configuración protegido con PIN.
+            med.setCodigoSiciap((codigoSiciap == null || codigoSiciap.isBlank()) ? null : codigoSiciap.trim());
             med.setEsPrioridad(esPrioridad);
             med.setEsLasa(esLasa);
             med.setSimilarA(esLasa ? similarA : null);
             medicamentoRepository.save(med);
             return "redirect:/medicamentos?success";
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            return "redirect:/medicamentos?error=Ese código SICIAP ya está asignado a otro medicamento.";
         } catch (Exception e) {
             return "redirect:/medicamentos?error=" + e.getMessage();
         }

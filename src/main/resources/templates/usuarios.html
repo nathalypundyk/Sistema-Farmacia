@@ -135,17 +135,17 @@
                     <input type="text" name="username" id="usuarioUsername" class="form-control" placeholder="Ej: jperez" required/>
                 </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-                    <div class="form-group">
-                        <label>Contraseña</label>
-                        <input type="password" name="password" class="form-control" placeholder="Min. 6 caracteres"/>
-                        <small style="color: var(--text-secondary); font-size: 0.75rem;">Si no ingresa, se asignará: 123456</small>
-                    </div>
-                    <div class="form-group">
-                        <label>PIN (4 dígitos)</label>
-                        <input type="password" name="pin" class="form-control" maxlength="4" placeholder="••••"/>
-                        <small style="color: var(--text-secondary); font-size: 0.75rem;">Para drogas críticas</small>
-                    </div>
+                <div class="form-group">
+                    <label>Contraseña</label>
+                    <input type="password" name="password" id="usuarioPassword" class="form-control" placeholder="Min. 6 caracteres"/>
+                    <small id="passwordHintNuevo" style="color: var(--text-secondary); font-size: 0.75rem;">Dejar en blanco para no cambiarla. En usuarios nuevos, si se deja vacía se asigna: 123456</small>
+                </div>
+                <div class="form-group">
+                    <small style="color: var(--text-secondary); font-size: 0.78rem; display:block; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 12px;">
+                        Tu propia contraseña y tu PIN se configuran desde el menú de tu cuenta (arriba a la derecha):
+                        <strong>Cambiar mi contraseña</strong> / <strong>Cambiar mi PIN</strong>.
+                        Este formulario solo permite a un administrador restablecer la contraseña de <em>otros</em> usuarios.
+                    </small>
                 </div>
 
                 <div class="form-group">
@@ -173,11 +173,25 @@
         </div>
     </div>
 
-    <script>
+    <script th:inline="javascript">
+        const CURRENT_USER_ID = /*[[${currentUserId}]]*/ null;
+
+        // Bloquea/Habilita el campo contraseña según si se edita la cuenta propia
+        function aplicarReglaPassword(editandoId) {
+            const esPropio = editandoId != null && String(editandoId) === String(CURRENT_USER_ID);
+            const input = document.getElementById('usuarioPassword');
+            // Sobre la propia cuenta, el campo se deshabilita (la contraseña propia
+            // se cambia desde el menú de la cuenta, con la contraseña actual).
+            document.getElementById('passwordHintNuevo').style.display = esPropio ? 'none' : '';
+            input.disabled = esPropio;
+            if (esPropio) input.value = '';
+        }
+
         function openModal(id) {
             if (id === 'usuarioModal' && !document.getElementById('usuarioId').value) {
                 document.getElementById('formUsuario').reset();
                 document.querySelector('#usuarioModal h3').innerText = '👤 Nuevo Usuario';
+                aplicarReglaPassword(null);
             }
             const modal = document.getElementById(id);
             modal.style.display = 'flex';
@@ -194,7 +208,8 @@
             document.getElementById('usuarioApellido').value = apellido;
             document.getElementById('usuarioUsername').value = username;
             document.getElementById('usuarioActivo').checked = activo === true || activo === 'true';
-            
+            aplicarReglaPassword(id);
+
             // reset checkboxes
             document.querySelectorAll('input[name="roles"]').forEach(cb => {
                 cb.checked = rolesIds.includes(cb.value);

@@ -13,8 +13,35 @@
         const CSRF_TOKEN  = /*[[${_csrf.token}]]*/ '';
         const CSRF_HEADER = /*[[${_csrf.headerName}]]*/ 'X-CSRF-TOKEN';
         const MEDS_DATA   = JSON.parse(/*[[${medicamentosJson}]]*/ '[]');
+        const PIN_UNLOCKED = /*[[${pinUnlocked}]]*/ false;
+        const STOCK_DEFECTO = 100;
         /*]]>*/
     </script>
+
+    <!-- ── Gate de PIN: se pide una vez al entrar, dura toda la sesión ── -->
+    <div id="pinGate" style="display:none; position:fixed; inset:0; z-index:3000;
+         background:rgba(15,23,42,0.75); backdrop-filter:blur(5px);
+         align-items:center; justify-content:center;">
+        <div style="background:var(--card-bg,#fff); border-radius:16px; padding:32px 36px;
+                    max-width:380px; width:90%; box-shadow:0 24px 48px rgba(0,0,0,0.3); text-align:center;">
+            <div style="font-size:2.2rem; margin-bottom:8px;">🔒</div>
+            <h2 style="margin:0 0 6px; font-size:1.15rem; color:var(--text-main,#1e293b);">Configuración protegida</h2>
+            <p style="font-size:0.86rem; color:var(--text-secondary); margin:0 0 20px;">
+                Ingresá tu PIN de administrador para modificar stock mínimo y deseable.</p>
+            <input type="password" id="gatePin" maxlength="10" placeholder="PIN"
+                   style="width:100%; box-sizing:border-box; padding:11px 14px; text-align:center;
+                          border:1.5px solid var(--border-color); border-radius:9px; font-size:1.2rem;
+                          letter-spacing:4px; background:var(--input-bg,#f8fafc); color:var(--text-main);
+                          outline:none; margin-bottom:8px;"
+                   onkeydown="if(event.key==='Enter') desbloquear()">
+            <div id="gateError" style="color:#b91c1c; font-size:0.82rem; min-height:18px; margin-bottom:14px;"></div>
+            <div style="display:flex; gap:10px;">
+                <a href="/" class="btn" style="flex:1; background:#f1f5f9; color:#475569; padding:10px; text-decoration:none; border-radius:9px;">Volver</a>
+                <button type="button" id="gateBtn" class="btn btn-primary" style="flex:1; padding:10px;"
+                        onclick="desbloquear()">Desbloquear</button>
+            </div>
+        </div>
+    </div>
 
     <div style="margin-top: 24px;">
 
@@ -65,12 +92,6 @@
                     ⚡ Recomendar
                 </button>
             </div>
-
-            <!-- PIN -->
-            <input id="pinInput" type="password" placeholder="PIN de autorización" maxlength="10"
-                   style="width:150px; padding:8px 12px; border:1px solid var(--border-color); border-radius:8px;
-                          background:var(--input-bg,#f8fafc); color:var(--text-primary); font-size:.88rem; outline:none;"
-                   onkeydown="if(event.key==='Enter') guardarTodo()">
 
             <!-- Botón guardar -->
             <button id="btnGuardar" onclick="guardarTodo()" disabled
@@ -139,8 +160,8 @@ function renderTabla() {
         const modificado    = cambios[m.id];
         const esRecomendado = modificado && recomendados[m.id];
         const rowBg = esRecomendado ? 'background:#eff6ff;' : (modificado ? 'background:#fffbeb;' : '');
-        const minVal  = modificado?.minimo  !== undefined ? modificado.minimo  : (m.minimo  ?? '');
-        const desVal  = modificado?.deseable !== undefined ? modificado.deseable : (m.deseable ?? '');
+        const minVal  = modificado?.minimo   !== undefined ? modificado.minimo   : (m.minimo   ?? STOCK_DEFECTO);
+        const desVal  = modificado?.deseable !== undefined ? modificado.deseable : (m.deseable ?? STOCK_DEFECTO);
 
         const stockColor = m.stockTotal === 0 ? '#dc2626' : (m.minimo > 0 && m.stockTotal < m.minimo ? '#d97706' : '#059669');
         const estadoBadge = m.stockTotal === 0
@@ -222,11 +243,9 @@ function updateBadge() {
 
 // ── Guardar ──────────────────────────────────────────────────────────────────
 async function guardarTodo() {
-    const pin   = document.getElementById('pinInput').value;
     const items = Object.entries(cambios).map(([id, vals]) => ({ id: parseInt(id), ...vals }));
 
     if (!items.length) { showMsg('No hay cambios para guardar.', false); return; }
-    if (!pin) { showMsg('Ingresá tu PIN de autorización.', false); return; }
 
     const btn = document.getElementById('btnGuardar');
     btn.disabled = true; btn.textContent = 'Guardando…';
@@ -235,11 +254,13 @@ async function guardarTodo() {
         const resp = await fetch('/api/config/bulk', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', [CSRF_HEADER]: CSRF_TOKEN },
-            body: JSON.stringify({ pin, items })
+            body: JSON.stringify({ items })
         });
         const data = await resp.json();
 
         if (!resp.ok) {
+            // 403 → la sesión perdió el desbloqueo; volver a pedir PIN
+            if (resp.status === 403) { mostrarGate(); }
             showMsg(data.error || 'Error al guardar.', false);
             return;
         }
@@ -324,8 +345,43 @@ function showMsg(msg, ok) {
     setTimeout(() => { el.style.display = 'none'; }, 4000);
 }
 
+// ── PIN gate (una vez por sesión) ──────────────────────────────────────────────
+function mostrarGate() {
+    const gate = document.getElementById('pinGate');
+    gate.style.display = 'flex';
+    setTimeout(() => document.getElementById('gatePin').focus(), 60);
+}
+
+async function desbloquear() {
+    const pin = document.getElementById('gatePin').value.trim();
+    const err = document.getElementById('gateError');
+    if (!pin) { err.textContent = 'Ingresá tu PIN.'; return; }
+    const btn = document.getElementById('gateBtn');
+    btn.disabled = true; btn.textContent = 'Verificando…';
+    try {
+        const resp = await fetch('/api/config/unlock', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', [CSRF_HEADER]: CSRF_TOKEN },
+            body: JSON.stringify({ pin })
+        });
+        if (!resp.ok) {
+            const data = await resp.json().catch(() => ({}));
+            err.textContent = data.error || 'PIN incorrecto.';
+            return;
+        }
+        document.getElementById('pinGate').style.display = 'none';
+    } catch (e) {
+        err.textContent = 'Error de red: ' + e.message;
+    } finally {
+        btn.disabled = false; btn.textContent = 'Desbloquear';
+    }
+}
+
 // ── Init ──────────────────────────────────────────────────────────────────────
-window.addEventListener('DOMContentLoaded', renderTabla);
+window.addEventListener('DOMContentLoaded', () => {
+    renderTabla();
+    if (!PIN_UNLOCKED) mostrarGate();
+});
 </script>
 
 </body>

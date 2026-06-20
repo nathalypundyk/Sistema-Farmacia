@@ -9,6 +9,7 @@ import sistema_farmacia.demo.model.Usuario;
 import sistema_farmacia.demo.repository.UsuarioRepository;
 import sistema_farmacia.demo.repository.RolRepository;
 
+import java.security.Principal;
 import java.util.List;
 import java.util.Optional;
 
@@ -26,32 +27,40 @@ public class UsuarioController {
     private PasswordEncoder passwordEncoder;
 
     @GetMapping
-    public String listarUsuarios(Model model) {
+    public String listarUsuarios(Model model, Principal principal) {
         List<Usuario> usuarios = usuarioRepository.findAll();
         model.addAttribute("usuarios", usuarios);
         model.addAttribute("roles", rolRepository.findAll());
         model.addAttribute("activePage", "usuarios");
+        // Para que la vista pueda bloquear el cambio de contraseña sobre la propia cuenta
+        usuarioRepository.findByUsername(principal.getName())
+                .ifPresent(u -> model.addAttribute("currentUserId", u.getId()));
         return "usuarios";
     }
 
     @PostMapping("/save")
-    public String guardarUsuario(@ModelAttribute Usuario usuario) {
+    public String guardarUsuario(@ModelAttribute Usuario usuario, Principal principal) {
         if (usuario.getId() != null) {
             Optional<Usuario> existente = usuarioRepository.findById(usuario.getId());
             if (existente.isPresent()) {
                 Usuario u = existente.get();
+                boolean esMiPropiaCuenta = u.getUsername() != null
+                        && u.getUsername().equals(principal.getName());
                 u.setNombre(usuario.getNombre());
                 u.setApellido(usuario.getApellido());
                 u.setUsername(usuario.getUsername());
                 u.setActivo(usuario.getActivo() != null ? usuario.getActivo() : false);
-                
-                if (usuario.getPassword() != null && !usuario.getPassword().isEmpty()) {
+
+                // Un admin NO puede cambiar su propia contraseña desde acá: debe usar
+                // "Cambiar mi contraseña" (autoservicio con contraseña actual).
+                // Sí puede RESETEAR la de otros usuarios (recuperación de cuenta bloqueada).
+                if (!esMiPropiaCuenta
+                        && usuario.getPassword() != null && !usuario.getPassword().isEmpty()) {
                     u.setPassword(passwordEncoder.encode(usuario.getPassword()));
                 }
-                if (usuario.getPin() != null && !usuario.getPin().isEmpty()) {
-                    u.setPin(passwordEncoder.encode(usuario.getPin()));
-                }
-                
+                // El PIN NO se gestiona aquí: cada usuario cambia el suyo en "Cambiar mi PIN"
+                // (autoservicio con contraseña). Ver DashboardController.cambiarPin.
+
                 if(usuario.getRoles() != null && !usuario.getRoles().isEmpty()){
                     u.setRoles(usuario.getRoles());
                 }
@@ -66,11 +75,8 @@ public class UsuarioController {
         } else {
             usuario.setPassword(passwordEncoder.encode("123456")); // default
         }
-        
-        if (usuario.getPin() != null && !usuario.getPin().isEmpty()) {
-            usuario.setPin(passwordEncoder.encode(usuario.getPin()));
-        }
-        
+        // El usuario nuevo arranca sin PIN; lo configura él mismo en "Cambiar mi PIN".
+
         if (usuario.getActivo() == null) {
             usuario.setActivo(true);
         }
