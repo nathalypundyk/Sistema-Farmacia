@@ -24,6 +24,7 @@ public class SecurityConfig {
         http
             .authorizeHttpRequests((requests) -> requests
                 .requestMatchers("/css/**", "/js/**", "/img/**", "/h2-console/**").permitAll()
+                .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
 
                 // ── Solo ADMIN: configuración crítica y administración ──────────────
                 .requestMatchers("/admin/**").hasRole("ADMIN")
