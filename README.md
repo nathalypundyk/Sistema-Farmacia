@@ -79,7 +79,141 @@ spring.servlet.multipart.max-request-size=25MB
 
 ---
 
-## 4. Ejecución
+## 4. Docker (Recomendado para Producción)
+
+### Inicio rápido con Docker Compose
+
+La forma más sencilla de desplegar la aplicación es con Docker Compose, que maneja automáticamente
+la base de datos PostgreSQL y la aplicación Spring Boot.
+
+**Requisitos:**
+- Docker Desktop instalado (https://www.docker.com/products/docker-desktop)
+
+**Pasos:**
+
+1. Clonar o descargar el proyecto
+2. Configurar variables de entorno (opcional):
+   ```bash
+   cp .env.example .env
+   # Editar .env con credenciales seguras si es necesario
+   ```
+3. Iniciar la aplicación:
+   - **Linux/Mac:** `./scripts/start.sh`
+   - **Windows:** `.\scripts\start.ps1`
+   - O manual: `docker-compose up -d`
+
+4. Acceder a la aplicación: `http://localhost:8080`
+
+### Características de esta configuración
+
+✅ **Reinicio automático** — Si se va la luz o falla el proceso, se reinicia solo
+✅ **Health checks** — Docker monitorea la salud de los servicios
+✅ **Logs rotados** — No se llenan los discos (máx 10MB, 3 archivos)
+✅ **Variables de entorno** — Fácil de configurar credenciales seguras
+✅ **Base de datos persistente** — Los datos se guardan entre reinicios (volumen `postgres_data`)
+
+### Credenciales iniciales en Docker
+
+| Usuario | Contraseña | PIN |
+|---------|-----------|-----|
+| admin | HospitalAdmin2024! | 9876 |
+| farmacia | Farmacia2024! | (ninguno) |
+
+⚠️ **IMPORTANTE:** Cambiar estas credenciales en la primera ejecución desde el menú de usuario.
+
+### Scripts disponibles
+
+| Script | Descripción |
+|--------|-------------|
+| `scripts/start.sh` | Inicia Docker Compose (Linux/Mac) |
+| `scripts/start.ps1` | Inicia Docker Compose (Windows) |
+| `scripts/monitor-service.sh` | Monitorea y reinicia si falla (Linux/Mac) |
+| `scripts/monitor-service.ps1` | Monitorea y reinicia si falla (Windows) |
+| `scripts/backup-database.sh` | Realiza backup de BD (Linux/Mac) |
+| `scripts/restore-database.sh` | Restaura BD desde backup (Linux/Mac) |
+
+### Comandos útiles
+
+```bash
+# Ver estado de contenedores
+docker-compose ps
+
+# Ver logs de la aplicación
+docker-compose logs -f app
+
+# Ver logs de la base de datos
+docker-compose logs -f db
+
+# Detener la aplicación
+docker-compose down
+
+# Reiniciar solo la aplicación
+docker-compose up -d --no-deps app
+
+# Hacer backup de la base de datos
+./scripts/backup-database.sh
+
+# Restaurar desde backup
+./scripts/restore-database.sh backups/backup_XXXXXXXX_XXXXXX.sql.gz
+```
+
+### Configuración en .env
+
+Crear un archivo `.env` en la raíz del proyecto (copiar desde `.env.example`):
+
+```env
+# Database
+DB_NAME=farmaciadb
+DB_USER=postgres
+DB_PASSWORD=CONTRASEÑA_SEGURA_AQUI
+DB_PORT=5432
+
+# Application
+APP_PORT=8080
+
+# Logging
+LOG_LEVEL_SECURITY=INFO
+LOG_LEVEL_APP=INFO
+
+# WhatsApp
+WHATSAPP_DIRECTORA_NUMERO=595XXXXXXXXX
+```
+
+⚠️ El archivo `.env` está en `.gitignore` y no se commitea (contiene credenciales).
+
+### Inicio automático en Windows
+
+Para que el servicio inicie automáticamente al bootear:
+
+1. Abrir **Task Scheduler**
+2. Crear tarea:
+   - Nombre: `Farmacia Sistema Start`
+   - Trigger: `Al iniciar sesión` o `Al iniciar el sistema`
+   - Action: Ejecutar programa
+   - Program: `powershell.exe`
+   - Arguments: `-NoProfile -ExecutionPolicy Bypass -File "C:\ruta\al\scripts\start.ps1"`
+
+3. Marcar: "Run with highest privileges" y "Run whether user is logged in or not"
+
+### Monitoreo continuo
+
+Para asegurar que el sistema siempre esté en línea:
+
+**Windows:**
+```powershell
+# Ejecutar en PowerShell (como administrador)
+& "C:\ruta\al\scripts\monitor-service.ps1"
+```
+
+**Linux/Mac:**
+```bash
+# Ejecutar en segundo plano
+nohup ./scripts/monitor-service.sh > logs/monitor.log 2>&1 &
+```
+
+---
+
+## 5. Ejecución Local (Sin Docker)
 
 ### Desde un IDE (NetBeans / IntelliJ / VS Code)
 
@@ -98,28 +232,24 @@ mvn spring-boot:run
 
 La aplicación queda disponible en `http://localhost:8081`.
 
-> Nota sobre Docker: el repositorio incluye `Dockerfile` y `docker-compose.yml`, pero apuntan a un
-> nombre de base y puerto distintos a los de `application.properties`. Antes de usarlos hay que
-> alinear el nombre de la base de datos y el puerto. El método recomendado es la ejecución local
-> contra una instancia de PostgreSQL.
-
 ---
 
-## 5. Usuarios iniciales
+## 6. Usuarios iniciales
 
 Al primer arranque, si no existen roles, la clase `DataLoader` crea estos usuarios de prueba:
 
 | Usuario | Contraseña | PIN    | Rol           |
 | ------- | ---------- | ------ | ------------- |
-| admin   | admin123   | 1111   | ADMIN         |
-| farma   | farma123   | (sin PIN) | FARMACEUTICO |
+| admin   | HospitalAdmin2024! | 9876   | ADMIN         |
+| farmacia | Farmacia2024! | (sin PIN) | FARMACEUTICO |
 
-Estas credenciales son solo para el primer ingreso. Cada usuario debe cambiar su contraseña y su
-PIN desde el menú de su cuenta (ver sección 7).
+⚠️ **IMPORTANTE:** Estas credenciales son solo para el primer ingreso. Cada usuario debe cambiar su 
+contraseña y su PIN desde el menú de su cuenta (esquina superior derecha) antes de que otros 
+usuarios accedan al sistema.
 
 ---
 
-## 6. Roles y permisos
+## 7. Roles y permisos
 
 | Función                                          | ADMIN | FARMACEUTICO |
 | ------------------------------------------------ | :---: | :----------: |
@@ -137,7 +267,7 @@ Las restricciones se aplican en el backend (reglas de URL en `SecurityConfig`) y
 
 ---
 
-## 7. Seguridad: contraseñas y PIN
+## 8. Seguridad: contraseñas y PIN
 
 - Contraseñas y PIN se almacenan siempre con hash BCrypt; nunca en texto plano.
 - Cambio de contraseña y de PIN: autoservicio desde el menú de la cuenta (esquina superior
@@ -150,7 +280,7 @@ Las restricciones se aplican en el backend (reglas de URL en `SecurityConfig`) y
 
 ---
 
-## 8. Módulos principales
+## 9. Módulos principales
 
 | Ruta                  | Descripción                                                        | Acceso |
 | --------------------- | ------------------------------------------------------------------ | ------ |
@@ -166,9 +296,9 @@ Las restricciones se aplican en el backend (reglas de URL en `SecurityConfig`) y
 
 ---
 
-## 9. Importación de datos
+## 10. Importación de datos
 
-### 9.1. Importación de stock
+### 10.1. Importación de stock
 
 1. Se sube el Excel y el sistema agrupa las filas por nombre y concentración (normalizados),
    leyendo lotes, vencimientos y cantidades.
@@ -181,20 +311,20 @@ Las restricciones se aplican en el backend (reglas de URL en `SecurityConfig`) y
    medicamentos nuevos (sin código SICIAP, con stock mínimo y deseable por defecto de 100). Se
    evita duplicar si ya existe un medicamento equivalente.
 
-### 9.2. Importación de códigos SICIAP
+### 10.2. Importación de códigos SICIAP
 
 - Empareja cada código del archivo con un medicamento del catálogo (por nombre y concentración) y
   asigna el código. Si un medicamento creado sin código aparece luego en un archivo SICIAP, el
   emparejamiento por nombre permite completarle el código.
 
-### 9.3. Asociación manual de códigos SICIAP
+### 10.3. Asociación manual de códigos SICIAP
 
 - Un administrador puede asignar o corregir el código SICIAP de un medicamento desde la pantalla de
   Medicamentos (acción de edición).
 
 ---
 
-## 10. Estructura del proyecto
+## 11. Estructura del proyecto
 
 ```text
 src/main/java/sistema_farmacia/demo/
@@ -216,13 +346,13 @@ Entidades principales: `Medicamento`, `Lote`, `Usuario`, `Rol`, `Alerta`, `Consu
 
 ---
 
-## 11. Carga inicial de datos (DataLoader)
+## 12. Carga inicial de datos (DataLoader)
 
 `config/DataLoader.java` implementa `CommandLineRunner` y se ejecuta una vez al iniciar la
 aplicación. Su única función es garantizar que exista un acceso inicial:
 
 - Si la tabla de roles está vacía, crea los roles `ADMIN` y `FARMACEUTICO` y los dos usuarios de
-  prueba de la sección 5 (con contraseña y PIN ya hasheados).
+  prueba de la sección 6 (con contraseña y PIN ya hasheados).
 - Si ya existen roles, no hace nada: es idempotente y no modifica datos existentes.
 
 Conviene mantenerlo, porque en una base vacía no habría ningún usuario con el cual iniciar sesión.
@@ -230,9 +360,11 @@ En un entorno real, las credenciales por defecto deben cambiarse después del pr
 
 ---
 
-## 12. Notas de mantenimiento
+## 13. Notas de mantenimiento
 
 - Cambiar las credenciales por defecto y la contraseña de la base de datos antes de un despliegue
   real.
 - Las tablas se generan con `ddl-auto=update`; para un control más estricto del esquema en
   producción se recomienda evaluar migraciones gestionadas (por ejemplo, Flyway o Liquibase).
+- Cuando se usa Docker Compose, los datos de PostgreSQL se persisten en el volumen `postgres_data`.
+- Realizar backups regulares usando el script `scripts/backup-database.sh`.

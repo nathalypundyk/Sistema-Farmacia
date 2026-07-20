@@ -53,6 +53,12 @@
 			<artifactId>thymeleaf-extras-springsecurity6</artifactId>
 		</dependency>
 
+		<!-- Health & Monitoring -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-actuator</artifactId>
+		</dependency>
+
 		<!-- Utils -->
 			<dependency>
 				<groupId>org.projectlombok</groupId>

@@ -27,19 +27,19 @@ public class DataLoader implements CommandLineRunner {
         Rol adminRol = rolRepo.save(Rol.builder().nombre("ADMIN").descripcion("Administrador Total").build());
         Rol farmaRol = rolRepo.save(Rol.builder().nombre("FARMACEUTICO").descripcion("Gestion de Farmacia").build());
 
-        // Admin con PIN hasheado (BCrypt). La administradora puede cambiarlo luego desde Usuarios.
+        // Admin con PIN hasheado (BCrypt). CAMBIAR estas credenciales antes de poner en producción.
         usuarioRepo.save(Usuario.builder()
             .username("admin")
-            .password(passwordEncoder.encode("admin123"))
-            .nombre("Mario").apellido("Administrador")
-            .pin(passwordEncoder.encode("1111")).activo(true)
+            .password(passwordEncoder.encode("HospitalAdmin2024!"))
+            .nombre("Administrador").apellido("Sistema")
+            .pin(passwordEncoder.encode("9876")).activo(true)
             .roles(Set.of(adminRol)).build());
 
         // El farmacéutico no requiere PIN (no modifica stock mínimo/deseable).
         usuarioRepo.save(Usuario.builder()
-            .username("farma")
-            .password(passwordEncoder.encode("farma123"))
-            .nombre("Lucia").apellido("Farmaceutica")
+            .username("farmacia")
+            .password(passwordEncoder.encode("Farmacia2024!"))
+            .nombre("Farmacéutico").apellido("Sistema")
             .activo(true)
             .roles(Set.of(farmaRol)).build());
     }
