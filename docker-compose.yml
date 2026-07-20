@@ -31,6 +31,12 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SERVER_PORT: 8080
+      WHATSAPP_API_URL: ${WHATSAPP_API_URL:-http://localhost:3000}
+      WHATSAPP_ENCARGADA_NUMERO: ${WHATSAPP_ENCARGADA_NUMERO:-595986214339}
+    extra_hosts:
+      # Permite que el contenedor alcance un gateway WhatsApp corriendo en el host
+      # (fuera de Docker) usando host.docker.internal en WHATSAPP_API_URL.
+      - "host.docker.internal:host-gateway"
     depends_on:
       db:
         condition: service_healthy

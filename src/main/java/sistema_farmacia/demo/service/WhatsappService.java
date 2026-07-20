@@ -24,12 +24,12 @@ public class WhatsappService {
     @Value("${whatsapp.api.url}")
     private String whatsappApiUrl;
 
-    @Value("${whatsapp.directora.numero}")
-    private String numeroDirectora;
+    @Value("${whatsapp.encargada.numero}")
+    private String numeroEncargadaDeposito;
 
     /**
      * Consulta la BD, arma el mensaje según el estado del stock/lotes
-     * y lo envía al número de la directora vía el contenedor WhatsApp.
+     * y lo envía al número de la encargada del depósito vía el gateway WhatsApp.
      */
     public void enviarAlertaDiaria() {
         List<Medicamento> todos = medicamentoRepo.findAll();
@@ -46,7 +46,7 @@ public class WhatsappService {
 
         String mensaje = construirMensaje(conStockCritico, conLotesAVencer);
 
-        enviarMensaje(numeroDirectora, mensaje);
+        enviarMensaje(numeroEncargadaDeposito, mensaje);
     }
 
     /**

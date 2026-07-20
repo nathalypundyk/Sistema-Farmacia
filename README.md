@@ -64,11 +64,23 @@ server.port=8081
 
 ```properties
 whatsapp.api.url=http://localhost:3000
-whatsapp.directora.numero=595XXXXXXXXX
+whatsapp.encargada.numero=595XXXXXXXXX
 ```
 
-- `whatsapp.api.url`: URL del servicio que entrega los mensajes.
-- `whatsapp.directora.numero`: número de destino con código de país, sin el signo `+`.
+- `whatsapp.api.url`: URL del gateway que realmente entrega los mensajes a WhatsApp.
+- `whatsapp.encargada.numero`: número de la encargada del depósito, con código de país, sin el `+`.
+
+⚠️ **Pendiente:** el gateway de WhatsApp (el servicio que escucha en `whatsapp.api.url`, típicamente
+algo como WPPConnect/venom-bot/Baileys, vinculado por QR a un número de WhatsApp) **no está incluido
+en este repositorio**. Sin ese servicio corriendo, las alertas no se envían aunque el número esté
+bien configurado — el sistema solo intenta llamar a esa URL y registra el error en el log si falla.
+
+Cuando se ubique/configure ese gateway:
+- Si corre en la misma PC del hospital, fuera de Docker: usar `http://host.docker.internal:3000`
+  en vez de `http://localhost:3000` (dentro de un contenedor, `localhost` apunta al propio
+  contenedor, no al host).
+- Si corre como otro contenedor Docker: usar el nombre del servicio de ese contenedor y sumarlo
+  a la misma red de `docker-compose.yml`.
 
 ### Límites de carga de archivos
 
@@ -175,8 +187,9 @@ APP_PORT=8080
 LOG_LEVEL_SECURITY=INFO
 LOG_LEVEL_APP=INFO
 
-# WhatsApp
-WHATSAPP_DIRECTORA_NUMERO=595XXXXXXXXX
+# WhatsApp (ver sección 3 sobre el gateway pendiente)
+WHATSAPP_API_URL=http://host.docker.internal:3000
+WHATSAPP_ENCARGADA_NUMERO=595XXXXXXXXX
 ```
 
 ⚠️ El archivo `.env` está en `.gitignore` y no se commitea (contiene credenciales).
