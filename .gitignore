@@ -49,3 +49,10 @@ logs/
 
 ### H2 database files ###
 data/
+
+### WhatsApp gateway (sesión vinculada por QR, no debe subirse a git) ###
+whatsapp-gateway/node_modules/
+whatsapp-gateway/ww-session/
+whatsapp-gateway/session/
+whatsapp-gateway/.wwebjs_cache/
+whatsapp-gateway/logs/

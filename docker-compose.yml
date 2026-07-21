@@ -19,6 +19,23 @@ services:
       timeout: 5s
       retries: 5
 
+  whatsapp:
+    build: ./whatsapp-gateway
+    container_name: farmacia-whatsapp
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - whatsapp_session:/app/ww-session
+      - whatsapp_cache:/app/.wwebjs_cache
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+        reservations:
+          memory: 512M
+
   app:
     build: .
     container_name: farmacia-app
@@ -31,8 +48,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-postgres}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SERVER_PORT: 8080
-      WHATSAPP_API_URL: ${WHATSAPP_API_URL:-http://localhost:3000}
-      WHATSAPP_ENCARGADA_NUMERO: ${WHATSAPP_ENCARGADA_NUMERO:-595986214339}
+      WHATSAPP_API_URL: ${WHATSAPP_API_URL:-http://whatsapp:3000}
+      WHATSAPP_ENCARGADA_NUMERO: ${WHATSAPP_ENCARGADA_NUMERO:-595985771528}
     extra_hosts:
       # Permite que el contenedor alcance un gateway WhatsApp corriendo en el host
       # (fuera de Docker) usando host.docker.internal en WHATSAPP_API_URL.
@@ -40,6 +57,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      whatsapp:
+        condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
       interval: 30s
@@ -54,3 +73,5 @@ services:
 
 volumes:
   postgres_data:
+  whatsapp_session:
+  whatsapp_cache:

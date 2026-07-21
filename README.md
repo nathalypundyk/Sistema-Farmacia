@@ -63,24 +63,28 @@ server.port=8081
 ### Alertas por WhatsApp
 
 ```properties
-whatsapp.api.url=http://localhost:3000
+whatsapp.api.url=http://whatsapp:3000
 whatsapp.encargada.numero=595XXXXXXXXX
 ```
 
 - `whatsapp.api.url`: URL del gateway que realmente entrega los mensajes a WhatsApp.
 - `whatsapp.encargada.numero`: número de la encargada del depósito, con código de país, sin el `+`.
 
-⚠️ **Pendiente:** el gateway de WhatsApp (el servicio que escucha en `whatsapp.api.url`, típicamente
-algo como WPPConnect/venom-bot/Baileys, vinculado por QR a un número de WhatsApp) **no está incluido
-en este repositorio**. Sin ese servicio corriendo, las alertas no se envían aunque el número esté
-bien configurado — el sistema solo intenta llamar a esa URL y registra el error en el log si falla.
+El gateway de WhatsApp (basado en `whatsapp-web.js`) vive en [`whatsapp-gateway/`](whatsapp-gateway/)
+y se levanta como el servicio `whatsapp` del mismo `docker-compose.yml` — no requiere pasos aparte,
+`docker-compose up` ya lo incluye. La primera vez que arranca, no tiene ninguna sesión vinculada:
 
-Cuando se ubique/configure ese gateway:
-- Si corre en la misma PC del hospital, fuera de Docker: usar `http://host.docker.internal:3000`
-  en vez de `http://localhost:3000` (dentro de un contenedor, `localhost` apunta al propio
-  contenedor, no al host).
-- Si corre como otro contenedor Docker: usar el nombre del servicio de ese contenedor y sumarlo
-  a la misma red de `docker-compose.yml`.
+1. `docker-compose up -d`
+2. `docker-compose logs -f whatsapp` — va a mostrar un QR en texto (o abrir `http://localhost:3000/login`
+   para verlo como imagen).
+3. Con el celular de la encargada del depósito: WhatsApp → Configuración → Dispositivos vinculados →
+   Vincular dispositivo, y escanear.
+4. La sesión queda persistida en el volumen Docker `whatsapp_session` — sobrevive a reinicios del
+   contenedor y no hace falta volver a escanear salvo que se cierre sesión desde el celular o se
+   borre el volumen.
+
+Si en algún momento el gateway corre fuera de Docker en la misma PC (no como contenedor), usar
+`http://host.docker.internal:3000` en vez de `http://whatsapp:3000`.
 
 ### Límites de carga de archivos
 
