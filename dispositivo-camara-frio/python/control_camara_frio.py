@@ -48,8 +48,9 @@ COLORES = {  # BGR
 class ClienteSistema:
     """Habla con /api/dispositivo/camara-frio del sistema Spring Boot."""
 
-    def __init__(self, url_base, api_key):
+    def __init__(self, url_base, api_key, al_recibir_resultado=None):
         self.base = url_base.rstrip("/") + "/api/dispositivo/camara-frio"
+        self.al_recibir_resultado = al_recibir_resultado
         self.sesion = requests.Session()
         self.sesion.headers.update({"X-API-KEY": api_key})
         self.conectado = False
@@ -71,6 +72,13 @@ class ClienteSistema:
             rostros.append({**r, "imagen": imagen})
         self.conectado = True
         return rostros
+
+    # Consulta liviana: solo los permisos actuales (sin descargar fotos)
+    def consultar_permisos(self):
+        resp = self.sesion.get(self.base + "/rostros", timeout=5)
+        resp.raise_for_status()
+        self.conectado = True
+        return {r["usuarioId"]: bool(r["autorizado"]) for r in resp.json()}
 
     # Envíos asincrónicos (lecturas y accesos)
     def enviar_lectura(self, temperatura, puerta, tiempo, estado):
@@ -98,7 +106,10 @@ class ClienteSistema:
                 elif resp.status_code >= 400:
                     print(f"El sistema rechazó {ruta}: {resp.status_code} {resp.text}")
                 elif ruta == "/accesos":
-                    print(f"Sistema registró el acceso: {resp.json().get('resultado')}")
+                    resultado = resp.json().get("resultado")
+                    print(f"Sistema registró el acceso: {resultado}")
+                    if self.al_recibir_resultado and datos.get("usuarioId") is not None:
+                        self.al_recibir_resultado(datos["usuarioId"], resultado == AUTORIZADO)
             except requests.RequestException as e:
                 self.conectado = False
                 print(f"Sin conexión con el sistema ({ruta}): {e.__class__.__name__}")
@@ -204,12 +215,28 @@ def main():
     limpiar_logs_antiguos(config.DIAS_LOGS)
     archivo_log = os.path.join(DIR_SCRIPT, f"log_accesos_{datetime.now().strftime('%d-%m-%Y')}.txt")
 
-    sistema = ClienteSistema(config.URL_SISTEMA, config.API_KEY)
-    arduino = abrir_arduino()
-
     # Carga de rostros: primero el sistema; si no responde, la carpeta de respaldo.
     rostros_lock = threading.Lock()
     rostros = {"encodings": [], "datos": []}
+
+    def actualizar_permiso(usuario_id, autorizado):
+        """Sincroniza el permiso local con el que tiene el sistema (la fuente de verdad)."""
+        with rostros_lock:
+            for d in rostros["datos"]:
+                if d["usuarioId"] == usuario_id and d["autorizado"] != autorizado:
+                    d["autorizado"] = autorizado
+                    print(f"Permiso actualizado desde el sistema: {d['nombre']} -> "
+                          f"{'AUTORIZADO' if autorizado else 'SIN PERMISO'}")
+
+    def sincronizar_permisos():
+        try:
+            for usuario_id, autorizado in sistema.consultar_permisos().items():
+                actualizar_permiso(usuario_id, autorizado)
+        except requests.RequestException:
+            pass  # sin conexión: se mantiene la lista actual
+
+    sistema = ClienteSistema(config.URL_SISTEMA, config.API_KEY, actualizar_permiso)
+    arduino = abrir_arduino()
 
     def cargar_rostros():
         try:
@@ -232,6 +259,8 @@ def main():
 
     estado = {"temp": "--", "puerta": "DESCONOCIDA", "tiempo": "00:00:00", "est": "Iniciando...", "sistema": False}
     ultimo_registro = {}
+    cuadros_seguidos = {}           # clave -> cantidad de cuadros consecutivos en que se vio
+    ultima_sincronizacion = time.time()
     ultimo_envio_lectura = 0.0
     ultima_puerta_enviada = None
 
@@ -275,7 +304,7 @@ def main():
                 print(f"Error leyendo serial: {e}")
 
         frame = cv2.resize(frame, (640, 480))
-        frame_pequeno = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
+        frame_pequeno = cv2.resize(frame, (0, 0), fx=config.ESCALA, fy=config.ESCALA)
         rgb_pequeno = cv2.cvtColor(frame_pequeno, cv2.COLOR_BGR2RGB)
 
         ubicaciones = face_recognition.face_locations(rgb_pequeno)
@@ -285,8 +314,10 @@ def main():
             encodings_ref = list(rostros["encodings"])
             datos_ref = list(rostros["datos"])
 
+        claves_en_cuadro = set()
         for (top, right, bottom, left), enc_actual in zip(ubicaciones, codificaciones):
-            top, right, bottom, left = top * 4, right * 4, bottom * 4, left * 4
+            factor = 1 / config.ESCALA
+            top, right, bottom, left = (int(v * factor) for v in (top, right, bottom, left))
 
             nombre, usuario_id, resultado, distancia = "Desconocido", None, DESCONOCIDO, None
             if encodings_ref:
@@ -297,10 +328,17 @@ def main():
                     nombre, usuario_id, distancia = d["nombre"], d["usuarioId"], float(distancias[mejor])
                     resultado = AUTORIZADO if d["autorizado"] else SIN_PERMISO
 
-            # --- Igual que el docente: se registra solo con la puerta abierta y con memoria de 90 s ---
-            if estado["puerta"] == "ABIERTA":
+            # --- Igual que el docente: se registra solo con la puerta abierta y con memoria por persona ---
+            # Confirmación: la misma identidad tiene que verse varios cuadros seguidos
+            # (evita registrar "Desconocido" por un cuadro movido o mal iluminado).
+            clave = usuario_id if usuario_id is not None else nombre
+            claves_en_cuadro.add(clave)
+            cuadros_seguidos[clave] = cuadros_seguidos.get(clave, 0) + 1
+            necesarios = config.CUADROS_CONFIRMAR_DESCONOCIDO if resultado == DESCONOCIDO else config.CUADROS_CONFIRMAR
+            confirmado = cuadros_seguidos[clave] >= necesarios
+
+            if estado["puerta"] == "ABIERTA" and confirmado:
                 ahora = datetime.now()
-                clave = usuario_id if usuario_id is not None else nombre
                 previo = ultimo_registro.get(clave)  # (momento, resultado) del último registro
                 if (previo is None or previo[1] != resultado
                         or (ahora.timestamp() - previo[0]) > config.COOLDOWN_SEGUNDOS):
@@ -325,6 +363,16 @@ def main():
             cv2.rectangle(frame, (left, top), (right, bottom), color, 2)
             cv2.rectangle(frame, (left, bottom - 30), (right, bottom), color, cv2.FILLED)
             cv2.putText(frame, etiqueta, (left + 6, bottom - 6), cv2.FONT_HERSHEY_DUPLEX, 0.6, (255, 255, 255), 1)
+
+        # Olvidar las identidades que no aparecieron en este cuadro
+        for clave in list(cuadros_seguidos):
+            if clave not in claves_en_cuadro:
+                del cuadros_seguidos[clave]
+
+        # Cada N segundos se traen los permisos actuales del sistema (sin volver a bajar fotos)
+        if time.time() - ultima_sincronizacion >= config.SINCRONIZAR_PERMISOS_CADA_SEG:
+            ultima_sincronizacion = time.time()
+            threading.Thread(target=sincronizar_permisos, daemon=True).start()
 
         estado["sistema"] = sistema.conectado
         cv2.imshow("Control Cadena de Frio Farmacos HGS", np.hstack((frame, dibujar_panel(estado))))

@@ -70,6 +70,8 @@ python control_camara_frio.py
 ```
 
 Teclas en la ventana de la cámara: **R** recarga los rostros desde el sistema (después de cargar fotos nuevas), **ESC** sale.
+Los **permisos** se sincronizan solos cada 10 segundos; la tecla R solo hace falta cuando se cargan **fotos nuevas**.
+Para evitar falsas alarmas, una persona se registra recién cuando se la reconoce en 3 cuadros seguidos (6 si es desconocida).
 
 ## Guion sugerido para la demo (5 minutos)
 
@@ -79,7 +81,7 @@ Teclas en la ventana de la cámara: **R** recarga los rostros desde el sistema (
 4. Abrir la puerta (interruptor) y ponerse frente a la cámara una persona **autorizada**: recuadro verde y registro "Autorizado".
 5. Persona con foto pero **sin permiso**: recuadro naranja, buzzer, registro "Denegado · sin permiso" y WhatsApp.
 6. Persona **no registrada**: recuadro rojo, buzzer, registro "Denegado · desconocido".
-7. Quitar el permiso a alguien desde el sistema, presionar R y mostrar que ahora se le deniega el acceso.
+7. Quitar el permiso a alguien desde el sistema, esperar unos 10 segundos y mostrar que ahora se le deniega el acceso.
 
 ## Problemas frecuentes
 

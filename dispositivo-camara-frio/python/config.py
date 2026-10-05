@@ -23,6 +23,9 @@ CAMARA_INDICE = 0
 
 # --- Reconocimiento facial -------------------------------------------------------
 TOLERANCIA = 0.6            # distancia máxima para considerar que dos rostros coinciden (la del docente)
+ESCALA = 0.5                # tamaño de la imagen que se analiza (el docente usa 0.25; 0.5 detecta mejor a distancia)
+CUADROS_CONFIRMAR = 3       # cuadros seguidos para confirmar a una persona registrada
+CUADROS_CONFIRMAR_DESCONOCIDO = 6   # cuadros seguidos para confirmar a un desconocido (evita falsas alarmas)
 # No repetir el registro de la misma persona antes de este tiempo.
 # El script del docente usa 90 s; para la demostración se baja a 15 s.
 # Si cambia el resultado (por ejemplo, se le quitó el permiso), se registra en el momento.
@@ -30,6 +33,7 @@ COOLDOWN_SEGUNDOS = 15
 
 # --- Envío de datos --------------------------------------------------------------
 ENVIAR_LECTURA_CADA_SEG = 5     # cada cuánto se manda la temperatura al sistema (o antes si cambia la puerta)
+SINCRONIZAR_PERMISOS_CADA_SEG = 10  # cada cuánto se consultan los permisos actuales (las fotos nuevas siguen con R)
 
 # --- Respaldo sin conexión -------------------------------------------------------
 # Si el sistema no responde al arrancar, se usan las fotos de esta carpeta (como en el script del docente).
