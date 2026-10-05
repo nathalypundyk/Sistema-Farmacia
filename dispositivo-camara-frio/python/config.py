@@ -11,10 +11,14 @@ URL_SISTEMA = "http://localhost:8080"
 API_KEY = "hgs-camara-frio-demo"
 
 # --- Arduino -------------------------------------------------------------------
-# Arduino simulado en Wokwi para VS Code (wokwi.toml -> rfc2217ServerPort = 4000):
-PUERTO_ARDUINO = "rfc2217://localhost:4000?ign_set_control"
-# Arduino real en Windows:  PUERTO_ARDUINO = "COM7"
-# Arduino real en Linux:    PUERTO_ARDUINO = "/dev/ttyACM0"   (o /dev/ttyUSB0 en clones con CH340)
+# "AUTO" = busca solo el Arduino real conectado por USB (Uno original o clon con CH340/CP210x/FTDI).
+#          Si el COM cambia porque se enchufa en otro USB o en otra PC, no hay que tocar nada.
+PUERTO_ARDUINO = "AUTO"
+# Para fijar un puerto a mano, reemplazar "AUTO" por uno de estos:
+#   Arduino real en Windows:  PUERTO_ARDUINO = "COM7"
+#   Arduino real en Linux:    PUERTO_ARDUINO = "/dev/ttyACM0"   (o /dev/ttyUSB0 en clones con CH340)
+#   Arduino simulado en Wokwi (wokwi.toml -> rfc2217ServerPort = 4000):
+#                             PUERTO_ARDUINO = "rfc2217://localhost:4000?ign_set_control"
 VELOCIDAD_BAUD = 9600
 
 # --- Cámara ----------------------------------------------------------------------

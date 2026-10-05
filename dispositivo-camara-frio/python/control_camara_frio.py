@@ -8,6 +8,7 @@ Qué agrega respecto al script original:
   2. Las lecturas del Arduino y los accesos se envían a la API del sistema, que los guarda en PostgreSQL
      y manda las alertas por WhatsApp.
   3. Se conecta igual a un Arduino real (COM7, /dev/ttyACM0) o al Arduino simulado en Wokwi (rfc2217://...).
+     Con PUERTO_ARDUINO = "AUTO" detecta solo en qué puerto está el Arduino real.
   4. Los envíos se hacen en un hilo aparte para que el video no se congele si la red tarda.
 
 Se mantienen del original: protocolo serial, comando ALARMA_INTRUSO, registro solo con puerta abierta,
@@ -27,6 +28,7 @@ import face_recognition
 import numpy as np
 import requests
 import serial
+from serial.tools import list_ports
 
 import config
 
@@ -163,16 +165,64 @@ def rostros_respaldo():
     return rostros
 
 
+# Fabricantes (VID USB) de las placas y adaptadores USB-serie más comunes en Arduino Uno
+VIDS_ARDUINO = {
+    0x2341: "Arduino original",
+    0x2A03: "Arduino original (arduino.org)",
+    0x1A86: "Clon con chip CH340",
+    0x10C4: "Adaptador CP210x",
+    0x0403: "Adaptador FTDI",
+}
+PALABRAS_ARDUINO = ("arduino", "ch340", "ch341", "cp210", "ftdi", "usb-serial", "usb serial")
+
+
+def detectar_puerto_arduino():
+    """Devuelve el puerto (ej. "COM5") donde está conectado el Arduino, o None si no encuentra ninguno."""
+    puertos = list(list_ports.comports())
+    candidatos = []
+    for p in puertos:
+        descripcion = f"{p.description} {p.manufacturer or ''}".lower()
+        if p.vid in VIDS_ARDUINO or any(palabra in descripcion for palabra in PALABRAS_ARDUINO):
+            candidatos.append(p)
+
+    if not candidatos:
+        print("No se encontró ningún Arduino conectado por USB.")
+        if puertos:
+            print("Puertos disponibles:")
+            for p in puertos:
+                print(f"   {p.device}  ->  {p.description}")
+            print('Si el Arduino es uno de esos, ponerlo a mano en config.py (ej. PUERTO_ARDUINO = "COM5").')
+        else:
+            print("Windows no ve ningún puerto COM: revisar el cable USB y, si es un clon, instalar el driver CH340.")
+        return None
+
+    elegido = candidatos[0]
+    tipo = VIDS_ARDUINO.get(elegido.vid, elegido.description)
+    print(f"Arduino detectado en {elegido.device} ({tipo})")
+    if len(candidatos) > 1:
+        otros = ", ".join(p.device for p in candidatos[1:])
+        print(f"Aviso: también hay otros posibles Arduino en {otros}. Si no es el correcto, fijar el puerto en config.py.")
+    return elegido.device
+
+
 def abrir_arduino():
+    puerto = config.PUERTO_ARDUINO
+    if str(puerto).strip().upper() == "AUTO":
+        puerto = detectar_puerto_arduino()
+        if puerto is None:
+            return None
     try:
         # serial_for_url acepta tanto "COM7" o "/dev/ttyACM0" como "rfc2217://localhost:4000"
-        arduino = serial.serial_for_url(config.PUERTO_ARDUINO, baudrate=config.VELOCIDAD_BAUD, timeout=0.1)
+        arduino = serial.serial_for_url(puerto, baudrate=config.VELOCIDAD_BAUD, timeout=0.1)
         time.sleep(2)  # el Arduino real se reinicia al abrir el puerto
-        print(f"Conectado al Arduino en {config.PUERTO_ARDUINO}")
+        print(f"Conectado al Arduino en {puerto}")
         return arduino
     except Exception as e:
-        print(f"Advertencia: no se pudo conectar al Arduino en {config.PUERTO_ARDUINO}: {e}")
-        print("¿Está corriendo la simulación de Wokwi y la pestaña del simulador está visible?")
+        print(f"Advertencia: no se pudo conectar al Arduino en {puerto}: {e}")
+        if str(puerto).startswith("rfc2217"):
+            print("¿Está corriendo la simulación de Wokwi y la pestaña del simulador está visible?")
+        else:
+            print("¿Está abierto el Monitor Serie de Arduino IDE u otro programa usando el puerto? Cerrarlo y reintentar.")
         return None
 
 
