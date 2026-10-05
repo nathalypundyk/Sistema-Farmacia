@@ -53,6 +53,8 @@ services:
       CAMARAFRIO_API_KEY: ${CAMARAFRIO_API_KEY:-hgs-camara-frio-demo}
       CAMARAFRIO_TEMP_MIN: ${CAMARAFRIO_TEMP_MIN:-18}
       CAMARAFRIO_TEMP_MAX: ${CAMARAFRIO_TEMP_MAX:-22}
+      TZ: America/Asuncion
+      JAVA_TOOL_OPTIONS: -Duser.timezone=America/Asuncion
     extra_hosts:
       # Permite que el contenedor alcance un gateway WhatsApp corriendo en el host
       # (fuera de Docker) usando host.docker.internal en WHATSAPP_API_URL.
