@@ -38,6 +38,14 @@ public class SecurityConfig {
                                  "/medicamentos/actualizar",
                                  "/medicamentos/eliminar/**").hasRole("ADMIN")
 
+                // ── Cámara de frío ───────────────────────────────────────────────────
+                // API del dispositivo (script Python): sin sesión, la valida la clave X-API-KEY en el controlador.
+                .requestMatchers("/api/dispositivo/camara-frio/**").permitAll()
+                // Permisos y fotos de rostro: solo ADMIN.
+                .requestMatchers("/camara-frio/autorizaciones/**").hasRole("ADMIN")
+                // Monitoreo y bitácora: ADMIN + FARMACEUTICO.
+                .requestMatchers("/camara-frio", "/api/camara-frio/**").hasAnyRole("ADMIN", "FARMACEUTICO")
+
                 // ── Operativo: ADMIN + FARMACEUTICO ────────────────────────────────
                 .requestMatchers("/importacion", "/api/importacion/preview",
                                  "/api/importacion/confirmar").hasAnyRole("ADMIN", "FARMACEUTICO")
@@ -54,7 +62,7 @@ public class SecurityConfig {
                 .logoutSuccessUrl("/login?logout")
                 .permitAll()
             )
-            .csrf(csrf -> csrf.ignoringRequestMatchers("/h2-console/**"))
+            .csrf(csrf -> csrf.ignoringRequestMatchers("/h2-console/**", "/api/dispositivo/**"))
             .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()));
 
         return http.build();

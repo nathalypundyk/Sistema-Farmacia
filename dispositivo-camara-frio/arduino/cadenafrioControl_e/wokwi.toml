@@ -1,0 +1,11 @@
+# Configuración de Wokwi for VS Code
+# 1) Compilar el sketch en Arduino IDE 2: Sketch > Export Compiled Binary
+#    (o con arduino-cli: arduino-cli compile --fqbn arduino:avr:uno --output-dir build/arduino.avr.uno .)
+# 2) F1 > "Wokwi: Start Simulator" y dejar la pestaña del simulador visible.
+[wokwi]
+version = 1
+firmware = 'build/arduino.avr.uno/cadenafrioControl_e.ino.hex'
+elf = 'build/arduino.avr.uno/cadenafrioControl_e.ino.elf'
+# Expone el puerto serie del Arduino simulado en localhost:4000 (protocolo RFC2217).
+# El script de Python se conecta con: rfc2217://localhost:4000?ign_set_control
+rfc2217ServerPort = 4000

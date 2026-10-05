@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{layout/main :: head('Cadena de frío - HGS')}"></head>
+<body>
+
+    <aside th:replace="~{layout/main :: sidebar('camara-frio')}"></aside>
+
+    <main class="main-content">
+        <header th:replace="~{layout/main :: header('Cadena de Frío')}"></header>
+
+        <!-- ── Estado actual (se actualiza cada 3 s desde /api/camara-frio/estado) ── -->
+        <h2 class="section-title">❄️ Estado de la cámara de frío</h2>
+        <section class="stats-grid">
+            <div class="stat-card success" id="cardTemp">
+                <h3>Temperatura actual</h3>
+                <div class="value" id="tempActual">--</div>
+                <small>Rango permitido: <span th:text="${tempMin}">18</span> a <span th:text="${tempMax}">22</span> °C</small>
+            </div>
+            <div class="stat-card success" id="cardPuerta">
+                <h3>Puerta</h3>
+                <div class="value" id="puertaActual" style="font-size: 1.6rem;">--</div>
+                <small>Tiempo abierta: <span id="tiempoPuerta">00:00:00</span></small>
+            </div>
+            <div class="stat-card warning" id="cardDispositivo">
+                <h3>Dispositivo</h3>
+                <div class="value" id="dispositivoEstado" style="font-size: 1.6rem;">--</div>
+                <small>Última lectura: <span id="ultimaLectura">sin datos</span> · Estado Arduino: <span id="estadoArduino">--</span></small>
+            </div>
+        </section>
+
+        <!-- ── Historial de temperatura ── -->
+        <h2 class="section-title">📈 Temperatura de las últimas 2 horas</h2>
+        <div class="table-container" style="padding: 20px;">
+            <canvas id="graficoTemp" height="90"></canvas>
+        </div>
+
+        <!-- ── Bitácora de accesos (solo lectura) ── -->
+        <h2 class="section-title">🧑‍⚕️ Bitácora de accesos (reconocimiento facial)</h2>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Fecha y hora</th>
+                        <th>Persona detectada</th>
+                        <th style="text-align:center;">Resultado</th>
+                        <th style="text-align:center;">Puerta</th>
+                    </tr>
+                </thead>
+                <tbody id="tablaAccesos">
+                    <tr><td colspan="4" style="text-align:center; padding: 24px; color: var(--text-secondary);">Cargando…</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- ── Personal autorizado: solo ADMIN ── -->
+        <div sec:authorize="hasRole('ADMIN')" id="personal">
+            <h2 class="section-title">🔐 Personal con acceso a la cámara</h2>
+            <p style="color: var(--text-secondary); margin: -6px 0 14px; font-size: 0.9rem;">
+                El permiso es individual. Cargá una foto frontal, bien iluminada y con un solo rostro (JPG o PNG, máx. 2 MB).
+                Después de guardar, presioná <b>R</b> en la ventana de la cámara para que el script recargue los rostros.
+            </p>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Foto</th>
+                            <th>Usuario</th>
+                            <th style="text-align:center;">Acceso</th>
+                            <th>Actualizar</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="u : ${usuarios}" th:with="aut=${autorizaciones.get(u.id)}">
+                            <td style="width: 70px;">
+                                <img th:if="${aut != null and aut.tieneFoto()}"
+                                     th:src="@{/camara-frio/autorizaciones/{id}/foto(id=${u.id})}"
+                                     style="width: 54px; height: 54px; object-fit: cover; border-radius: 50%;" alt="Rostro">
+                                <span th:if="${aut == null or !aut.tieneFoto()}" style="color: var(--text-secondary); font-size: 0.8rem;">Sin foto</span>
+                            </td>
+                            <td>
+                                <div style="font-weight: 600;" th:text="${(u.nombre ?: '') + ' ' + (u.apellido ?: '')}">Nombre</div>
+                                <small style="color: var(--text-secondary);" th:text="${u.username}">usuario</small>
+                                <small th:if="${u.activo == false}" class="badge badge-danger">Inactivo</small>
+                            </td>
+                            <td style="text-align:center;">
+                                <span th:if="${aut != null and aut.autorizado}" class="badge badge-success">Autorizado</span>
+                                <span th:unless="${aut != null and aut.autorizado}" class="badge badge-danger">Sin permiso</span>
+                            </td>
+                            <td>
+                                <form th:action="@{/camara-frio/autorizaciones/{id}(id=${u.id})}" method="post" enctype="multipart/form-data"
+                                      style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                                    <input type="file" name="foto" accept="image/jpeg,image/png" class="form-control" style="max-width: 240px;">
+                                    <label style="display: flex; gap: 6px; align-items: center; font-size: 0.9rem;">
+                                        <input type="checkbox" name="autorizado" value="true"
+                                               th:checked="${aut != null and aut.autorizado}"
+                                               style="width: 18px; height: 18px; accent-color: var(--success);">
+                                        Autorizar
+                                    </label>
+                                    <button type="submit" class="btn btn-primary" style="padding: 6px 14px;">Guardar</button>
+                                </form>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script th:inline="javascript">
+        const TEMP_MIN = /*[[${tempMin}]]*/ 18;
+        const TEMP_MAX = /*[[${tempMax}]]*/ 22;
+
+        const etiquetasResultado = {
+            'AUTORIZADO':           '<span class="badge badge-success">Autorizado</span>',
+            'DENEGADO_SIN_PERMISO': '<span class="badge badge-warning">Denegado · sin permiso</span>',
+            'DENEGADO_DESCONOCIDO': '<span class="badge badge-danger">Denegado · desconocido</span>'
+        };
+
+        const ctx = document.getElementById('graficoTemp');
+        const grafico = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [
+                    { label: 'Temperatura (°C)', data: [], borderColor: '#2563eb', tension: 0.25, pointRadius: 0 },
+                    { label: 'Máximo', data: [], borderColor: '#ef4444', borderDash: [6, 4], pointRadius: 0 },
+                    { label: 'Mínimo', data: [], borderColor: '#0ea5e9', borderDash: [6, 4], pointRadius: 0 }
+                ]
+            },
+            options: { animation: false, scales: { y: { title: { display: true, text: '°C' } } } }
+        });
+
+        function escapar(t) {
+            const d = document.createElement('div');
+            d.textContent = t == null ? '' : String(t);
+            return d.innerHTML;
+        }
+
+        function marcar(card, clase) {
+            card.classList.remove('success', 'warning', 'danger');
+            card.classList.add(clase);
+        }
+
+        async function actualizar() {
+            try {
+                const resp = await fetch('/api/camara-frio/estado?minutos=120');
+                if (!resp.ok) return;
+                const d = await resp.json();
+
+                // Tarjetas
+                const u = d.ultima;
+                if (u) {
+                    document.getElementById('tempActual').textContent = Number(u.temperatura).toFixed(2) + ' °C';
+                    marcar(document.getElementById('cardTemp'), u.fueraDeRango ? 'danger' : 'success');
+                    document.getElementById('puertaActual').textContent = u.puertaAbierta ? 'ABIERTA' : 'CERRADA';
+                    marcar(document.getElementById('cardPuerta'), u.puertaAbierta ? 'warning' : 'success');
+                    document.getElementById('tiempoPuerta').textContent = u.tiempoPuerta || '00:00:00';
+                    document.getElementById('ultimaLectura').textContent = u.fechaHora;
+                    document.getElementById('estadoArduino').textContent = u.estado || '--';
+                }
+                document.getElementById('dispositivoEstado').textContent = d.conectado ? 'En línea' : 'Desconectado';
+                marcar(document.getElementById('cardDispositivo'), d.conectado ? 'success' : 'warning');
+
+                // Gráfico
+                grafico.data.labels = d.serie.map(p => p.hora);
+                grafico.data.datasets[0].data = d.serie.map(p => p.temperatura);
+                grafico.data.datasets[1].data = d.serie.map(() => TEMP_MAX);
+                grafico.data.datasets[2].data = d.serie.map(() => TEMP_MIN);
+                grafico.update();
+
+                // Bitácora
+                const tbody = document.getElementById('tablaAccesos');
+                if (!d.accesos.length) {
+                    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 24px; color: var(--text-secondary);">Todavía no hay accesos registrados.</td></tr>';
+                } else {
+                    tbody.innerHTML = d.accesos.map(a => `
+                        <tr>
+                            <td>${escapar(a.fechaHora)}</td>
+                            <td style="font-weight: 600;">${escapar(a.nombre)}</td>
+                            <td style="text-align:center;">${etiquetasResultado[a.resultado] || escapar(a.resultado)}</td>
+                            <td style="text-align:center;">${a.puertaAbierta ? 'Abierta' : 'Cerrada'}</td>
+                        </tr>`).join('');
+                }
+            } catch (e) {
+                console.error('No se pudo actualizar el estado de la cámara de frío', e);
+            }
+        }
+
+        actualizar();
+        setInterval(actualizar, 3000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,4 @@
+# Solo para la versión web (wokwi.com): bibliotecas que usa el sketch del docente
+OneWire
+DallasTemperature
+LiquidCrystal I2C

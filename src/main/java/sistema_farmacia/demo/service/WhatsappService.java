@@ -88,6 +88,14 @@ public class WhatsappService {
     }
 
     /**
+     * Envía un mensaje libre a la encargada del depósito.
+     * Lo usa el módulo de cámara de frío (alertas de temperatura, puerta e intrusos).
+     */
+    public void enviarMensajeEncargada(String mensaje) {
+        enviarMensaje(numeroEncargadaDeposito, mensaje);
+    }
+
+    /**
      * Llama al endpoint /send del contenedor WhatsApp.
      */
     private void enviarMensaje(String numero, String mensaje) {

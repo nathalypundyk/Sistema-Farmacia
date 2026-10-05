@@ -1,0 +1,5 @@
+python/__pycache__/
+python/venv/
+python/log_accesos_*.txt
+python/Images/
+arduino/cadenafrioControl_e/build/
