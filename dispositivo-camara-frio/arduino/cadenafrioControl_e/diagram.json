@@ -3,36 +3,92 @@
   "author": "Grupo Cadena de Frío - HGS",
   "editor": "wokwi",
   "parts": [
-    { "type": "wokwi-arduino-uno", "id": "uno", "top": 150, "left": 0, "attrs": {} },
-    { "type": "wokwi-ds18b20", "id": "temp1", "top": 20, "left": 40, "attrs": { "temperature": "20" } },
-    { "type": "wokwi-resistor", "id": "r1", "top": 0, "left": 120, "rotate": 90, "attrs": { "value": "4700" } },
-    { "type": "wokwi-lcd2004", "id": "lcd1", "top": -40, "left": 360, "attrs": { "pins": "i2c" } },
-    { "type": "wokwi-buzzer", "id": "bz1", "top": 10, "left": 230, "attrs": { "volume": "0.3" } },
-    { "type": "wokwi-led", "id": "led1", "top": 40, "left": 300, "attrs": { "color": "red" } },
-    { "type": "wokwi-resistor", "id": "r2", "top": 110, "left": 290, "attrs": { "value": "220" } },
-    { "type": "wokwi-slide-switch", "id": "sw1", "top": 380, "left": 120, "attrs": {} }
+    { "type": "wokwi-arduino-uno", "id": "uno", "top": 300, "left": 0, "attrs": {} },
+    { "type": "wokwi-led", "id": "led1", "top": 135, "left": 50, "attrs": { "color": "red" } },
+    {
+      "type": "wokwi-resistor",
+      "id": "r2",
+      "top": 242.35,
+      "left": 95.45,
+      "rotate": 90,
+      "attrs": { "value": "220" }
+    },
+    { "type": "wokwi-slide-switch", "id": "sw1", "top": 232, "left": 182.5, "attrs": {} },
+    {
+      "type": "wokwi-buzzer",
+      "id": "bz1",
+      "top": 88.8,
+      "left": 232.2,
+      "attrs": { "volume": "0.3" }
+    },
+    {
+      "type": "wokwi-ds18b20",
+      "id": "temp1",
+      "top": 120,
+      "left": 335,
+      "attrs": { "temperature": "20" }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r1",
+      "top": 215,
+      "left": 335,
+      "attrs": { "value": "4700" }
+    },
+    { "type": "wokwi-lcd2004", "id": "lcd1", "top": 330, "left": 430, "attrs": { "pins": "i2c" } },
+    {
+      "type": "wokwi-text",
+      "id": "txt1",
+      "top": 100,
+      "left": 20,
+      "attrs": { "text": "LED puerta (D13)" }
+    },
+    {
+      "type": "wokwi-text",
+      "id": "txt2",
+      "top": 200,
+      "left": 160,
+      "attrs": { "text": "Puerta (D6)" }
+    },
+    {
+      "type": "wokwi-text",
+      "id": "txt3",
+      "top": 75,
+      "left": 235,
+      "attrs": { "text": "Buzzer (D4)" }
+    },
+    {
+      "type": "wokwi-text",
+      "id": "txt4",
+      "top": 90,
+      "left": 320,
+      "attrs": { "text": "DS18B20 (D2)" }
+    },
+    {
+      "type": "wokwi-text",
+      "id": "txt5",
+      "top": 300,
+      "left": 520,
+      "attrs": { "text": "LCD 20x4 I2C (A4/A5)" }
+    }
   ],
   "connections": [
-    [ "temp1:VCC", "uno:5V", "red", [] ],
-    [ "temp1:GND", "uno:GND.1", "black", [] ],
-    [ "temp1:DQ", "uno:2", "green", [] ],
-    [ "r1:1", "temp1:DQ", "green", [] ],
-    [ "r1:2", "uno:5V", "red", [] ],
-
-    [ "lcd1:VCC", "uno:5V", "red", [] ],
-    [ "lcd1:GND", "uno:GND.2", "black", [] ],
-    [ "lcd1:SDA", "uno:A4", "blue", [] ],
-    [ "lcd1:SCL", "uno:A5", "purple", [] ],
-
-    [ "bz1:2", "uno:4", "orange", [] ],
-    [ "bz1:1", "uno:GND.3", "black", [] ],
-
-    [ "uno:13", "r2:1", "yellow", [] ],
-    [ "r2:2", "led1:A", "yellow", [] ],
-    [ "led1:C", "uno:GND.1", "black", [] ],
-
-    [ "sw1:2", "uno:6", "gray", [] ],
-    [ "sw1:1", "uno:GND.2", "black", [] ]
+    [ "led1:A", "r2:1", "red", [ "v41.45", "h50.0" ] ],
+    [ "r2:2", "uno:13", "orange", [ "v31.75" ] ],
+    [ "led1:C", "uno:GND.1", "black", [ "v105", "h50.5", "v27" ] ],
+    [ "sw1:2", "uno:6", "green", [ "v43" ] ],
+    [ "sw1:1", "uno:GND.1", "black", [ "v26", "h-73.5", "v17" ] ],
+    [ "bz1:2", "uno:4", "purple", [ "v91", "h-51.5", "v29" ] ],
+    [ "bz1:1", "uno:GND.1", "black", [ "v21", "h-109", "v82", "h-34.5", "v17" ] ],
+    [ "uno:2", "temp1:DQ", "blue", [ "v-13", "h111.0", "*", "v8" ] ],
+    [ "r1:1", "temp1:DQ", "blue", [ "*", "v8" ] ],
+    [ "r1:2", "temp1:VCC", "red", [ "*", "v8" ] ],
+    [ "lcd1:GND", "temp1:GND", "black", [ "h-12", "v-166", "*", "v8" ] ],
+    [ "lcd1:VCC", "temp1:VCC", "red", [ "h-7", "v-171.5", "*", "v8" ] ],
+    [ "uno:GND.2", "lcd1:GND", "black", [ "v28.5", "h225.5", "v-158", "h39" ] ],
+    [ "uno:5V", "lcd1:VCC", "red", [ "v38.5", "h245", "v-158.5", "h29" ] ],
+    [ "uno:A4", "lcd1:SDA", "blue", [ "v13.5", "h164", "v-124", "h24" ] ],
+    [ "uno:A5", "lcd1:SCL", "yellow", [ "v20.5", "h159.5", "v-121.5", "h19" ] ]
   ],
   "dependencies": {}
 }
