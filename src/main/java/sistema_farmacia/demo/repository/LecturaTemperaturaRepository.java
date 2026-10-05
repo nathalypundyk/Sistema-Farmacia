@@ -8,7 +8,8 @@ import java.util.List;
 import java.util.Optional;
 
 public interface LecturaTemperaturaRepository extends JpaRepository<LecturaTemperatura, Long> {
-    Optional<LecturaTemperatura> findFirstByOrderByFechaHoraDesc();
-    List<LecturaTemperatura> findByFechaHoraAfterOrderByFechaHoraAsc(LocalDateTime desde);
+    /** Última lectura recibida (por id, así no depende de la hora del servidor). */
+    Optional<LecturaTemperatura> findFirstByOrderByIdDesc();
+    List<LecturaTemperatura> findByFechaHoraBetweenOrderByFechaHoraAsc(LocalDateTime desde, LocalDateTime hasta);
     long countByFechaHoraAfterAndFueraDeRangoTrue(LocalDateTime desde);
 }

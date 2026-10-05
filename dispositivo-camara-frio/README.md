@@ -90,4 +90,5 @@ Teclas en la ventana de la cámara: **R** recarga los rostros desde el sistema (
 | `No module named 'pkg_resources'` | Falta `pip install "setuptools<81"` |
 | No abre la cámara | Probar `CAMARA_INDICE = 1` en `config.py` |
 | Temperatura `-127` | El sensor está desconectado en el diagrama (el sistema descarta esas lecturas) |
-| Se registra a la misma persona una sola vez | Es la memoria de 90 s del docente (`COOLDOWN_SEGUNDOS` en `config.py`) |
+| Se registra a la misma persona una sola vez | Es la memoria por persona (`COOLDOWN_SEGUNDOS` en `config.py`, 15 s en la demo; el docente usa 90 s) |
+| La temperatura no cambia en la pantalla | Mirar la consola del script: tiene que mostrar `Lectura enviada al sistema...` cada 5 s |

@@ -110,16 +110,18 @@ public class CamaraFrioService {
     }
 
     public Optional<LecturaTemperatura> ultimaLectura() {
-        return lecturaRepo.findFirstByOrderByFechaHoraDesc();
+        return lecturaRepo.findFirstByOrderByIdDesc();
     }
 
     public List<LecturaTemperatura> lecturasDesde(LocalDateTime desde) {
-        return lecturaRepo.findByFechaHoraAfterOrderByFechaHoraAsc(desde);
+        // El límite superior descarta lecturas con hora "del futuro" (por ejemplo, guardadas antes de
+        // corregir la zona horaria del contenedor).
+        return lecturaRepo.findByFechaHoraBetweenOrderByFechaHoraAsc(desde, LocalDateTime.now().plusMinutes(1));
     }
 
     public boolean dispositivoConectado() {
         return ultimaLectura()
-                .map(l -> Duration.between(l.getFechaHora(), LocalDateTime.now()).getSeconds() <= timeoutSegundos)
+                .map(l -> Math.abs(Duration.between(l.getFechaHora(), LocalDateTime.now()).getSeconds()) <= timeoutSegundos)
                 .orElse(false);
     }
 
@@ -163,7 +165,7 @@ public class CamaraFrioService {
     }
 
     public List<AccesoCamaraFrio> ultimosAccesos() {
-        return accesoRepo.findTop50ByOrderByFechaHoraDesc();
+        return accesoRepo.findTop50ByOrderByIdDesc();
     }
 
     // ───────────────────── Autorizaciones y fotos ─────────────────────

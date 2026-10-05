@@ -11,7 +11,7 @@ Qué agrega respecto al script original:
   4. Los envíos se hacen en un hilo aparte para que el video no se congele si la red tarda.
 
 Se mantienen del original: protocolo serial, comando ALARMA_INTRUSO, registro solo con puerta abierta,
-memoria de 90 segundos, log diario en .txt, limpieza de logs de más de 15 días y panel lateral.
+memoria por persona (90 s en el original, configurable en config.py), log diario en .txt, limpieza de logs de más de 15 días y panel lateral.
 
 Teclas:  R = recargar rostros desde el sistema   ESC = salir
 """
@@ -266,6 +266,7 @@ def main():
                         try:
                             sistema.enviar_lectura(float(estado["temp"]), estado["puerta"],
                                                    estado["tiempo"], estado["est"])
+                            print(f"Lectura enviada al sistema: {estado['temp']} C, puerta {estado['puerta']}, estado {estado['est']}")
                             ultimo_envio_lectura = ahora
                             ultima_puerta_enviada = estado["puerta"]
                         except ValueError:
@@ -300,13 +301,15 @@ def main():
             if estado["puerta"] == "ABIERTA":
                 ahora = datetime.now()
                 clave = usuario_id if usuario_id is not None else nombre
-                if clave not in ultimo_registro or (ahora.timestamp() - ultimo_registro[clave]) > config.COOLDOWN_SEGUNDOS:
+                previo = ultimo_registro.get(clave)  # (momento, resultado) del último registro
+                if (previo is None or previo[1] != resultado
+                        or (ahora.timestamp() - previo[0]) > config.COOLDOWN_SEGUNDOS):
                     texto = "ACCESO AUTORIZADO" if resultado == AUTORIZADO else "ACCESO DENEGADO"
                     mensaje = f"{ahora:%Y-%m-%d %H:%M:%S} - [{texto}] - Persona detectada: {nombre} (Puerta Abierta)\n"
                     with open(archivo_log, "a", encoding="utf-8") as f:
                         f.write(mensaje)
                     print(f"Log registrado: {mensaje.strip()}")
-                    ultimo_registro[clave] = ahora.timestamp()
+                    ultimo_registro[clave] = (ahora.timestamp(), resultado)
 
                     sistema.enviar_acceso(usuario_id, nombre, True, distancia)
 
