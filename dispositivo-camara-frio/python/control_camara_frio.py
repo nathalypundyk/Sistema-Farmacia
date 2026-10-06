@@ -407,7 +407,10 @@ def main():
                             print("¡Señal de alarma enviada al Arduino por acceso denegado!")
                         except Exception as e:
                             print(f"Error al enviar datos por serial al Arduino: {e}")
-
+                    else:
+                        print(f"Acceso autorizado para {nombre}")
+                        arduino.write(b"ACCESO_OK\n")
+                        print("Señal de acceso autorizado enviada al Arduino")
             color = COLORES[resultado]
             etiqueta = nombre if resultado != SIN_PERMISO else f"{nombre} (SIN PERMISO)"
             cv2.rectangle(frame, (left, top), (right, bottom), color, 2)

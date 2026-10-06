@@ -50,6 +50,10 @@ void loop()
         alerta();
       }
     }
+    if (comando == "ACCESO_OK") {
+      estadoalert = "ACCESO AUTORIZADO";
+    }
+    
   }
 
   sensors.requestTemperatures();   
