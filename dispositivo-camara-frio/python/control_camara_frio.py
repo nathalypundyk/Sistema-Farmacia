@@ -10,6 +10,9 @@ Qué agrega respecto al script original:
   3. Se conecta igual a un Arduino real (COM7, /dev/ttyACM0) o al Arduino simulado en Wokwi (rfc2217://...).
      Con PUERTO_ARDUINO = "AUTO" detecta solo en qué puerto está el Arduino real.
   4. Los envíos se hacen en un hilo aparte para que el video no se congele si la red tarda.
+  5. Rendimiento: la cámara, el Arduino y el reconocimiento facial trabajan en paralelo.
+     El reconocimiento corre en otro proceso (reconocimiento.py), así el video se ve fluido y sin retraso.
+  6. Pantalla con la identidad visual de GHS Pharma (pantalla.py).
 
 Se mantienen del original: protocolo serial, comando ALARMA_INTRUSO, registro solo con puerta abierta,
 memoria por persona (90 s en el original, configurable en config.py), log diario en .txt, limpieza de logs de más de 15 días y panel lateral.
@@ -17,7 +20,10 @@ memoria por persona (90 s en el original, configurable en config.py), log diario
 Teclas:  R = recargar rostros desde el sistema   ESC = salir
 """
 
+from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures.process import BrokenProcessPool
 from datetime import datetime, timedelta
+import multiprocessing
 import os
 import queue
 import threading
@@ -31,19 +37,14 @@ import serial
 from serial.tools import list_ports
 
 import config
+import pantalla
+import reconocimiento
 
 DIR_SCRIPT = os.path.dirname(os.path.abspath(__file__))
 
 AUTORIZADO = "AUTORIZADO"
 SIN_PERMISO = "DENEGADO_SIN_PERMISO"
 DESCONOCIDO = "DENEGADO_DESCONOCIDO"
-
-COLORES = {  # BGR
-    AUTORIZADO: (125, 220, 0),
-    SIN_PERMISO: (0, 165, 255),
-    DESCONOCIDO: (50, 50, 255),
-}
-
 
 # ─────────────────────────── Cliente del sistema de farmacia ───────────────────────────
 
@@ -133,14 +134,13 @@ def limpiar_logs_antiguos(dias_limite):
                     print(f"No se pudo eliminar {archivo}: {e}")
 
 
-def codificar(rostros):
-    """Calcula el vector facial de cada foto. Devuelve (encodings, datos)."""
+def codificar(rostros, motor):
+    """Calcula el vector facial de cada foto (en el proceso de reconocimiento). Devuelve (encodings, datos)."""
     encodings, datos = [], []
-    for r in rostros:
-        rgb = cv2.cvtColor(r["imagen"], cv2.COLOR_BGR2RGB)
-        enc = face_recognition.face_encodings(rgb)
-        if enc:
-            encodings.append(enc[0])
+    vectores = motor.codificar([cv2.cvtColor(r["imagen"], cv2.COLOR_BGR2RGB) for r in rostros])
+    for r, enc in zip(rostros, vectores):
+        if enc is not None:
+            encodings.append(enc)
             datos.append({"usuarioId": r.get("usuarioId"), "nombre": r["nombre"],
                           "autorizado": r.get("autorizado", True)})
             estado = "AUTORIZADO" if r.get("autorizado", True) else "SIN PERMISO"
@@ -226,37 +226,201 @@ def abrir_arduino():
         return None
 
 
-def abrir_camara():
-    # DirectShow abre la webcam más rápido en Windows; en Linux se usa V4L2 (backend por defecto).
-    backend = cv2.CAP_DSHOW if os.name == "nt" else cv2.CAP_ANY
-    return cv2.VideoCapture(config.CAMARA_INDICE, backend)
+# ─────────────────────────── Trabajo en paralelo (rendimiento) ───────────────────────────
+
+class CamaraEnVivo:
+    """Lee la cámara en un hilo propio y guarda solo el cuadro más nuevo.
+
+    Antes, si el reconocimiento tardaba, la cámara acumulaba cuadros viejos y la imagen
+    llegaba con 2 o 3 segundos de retraso. Ahora siempre se muestra el último cuadro.
+    """
+
+    def __init__(self, indice):
+        # DirectShow abre la webcam más rápido en Windows; en Linux se usa V4L2 (backend por defecto).
+        backend = cv2.CAP_DSHOW if os.name == "nt" else cv2.CAP_ANY
+        self.cap = cv2.VideoCapture(indice, backend)
+        # Se pide 640x480 directo a la cámara (las webcams USB suelen abrir en HD y eso es más lento).
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, pantalla.ANCHO_VIDEO)
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, pantalla.ALTO_VIDEO)
+        self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        self.activa = self.cap.isOpened()
+        self._condicion = threading.Condition()
+        self._cuadro = None
+        self._numero = 0
+        self._hilo = None
+        if self.activa:
+            self._hilo = threading.Thread(target=self._leer, daemon=True)
+            self._hilo.start()
+
+    def _leer(self):
+        fallos = 0
+        while self.activa:
+            ret, cuadro = self.cap.read()
+            if not ret:
+                fallos += 1
+                if fallos >= 50:  # ~1 segundo sin imagen: la cámara se desconectó
+                    print("Error: la cámara dejó de enviar imágenes")
+                    break
+                time.sleep(0.02)
+                continue
+            fallos = 0
+            cuadro = cv2.flip(cuadro, 1)
+            if cuadro.shape[1] != pantalla.ANCHO_VIDEO or cuadro.shape[0] != pantalla.ALTO_VIDEO:
+                cuadro = cv2.resize(cuadro, (pantalla.ANCHO_VIDEO, pantalla.ALTO_VIDEO))
+            with self._condicion:
+                self._cuadro = cuadro
+                self._numero += 1
+                self._condicion.notify_all()
+        with self._condicion:
+            self.activa = False
+            self._condicion.notify_all()
+
+    def siguiente(self, ultimo_numero, espera=0.5):
+        """Espera un cuadro más nuevo que ultimo_numero. Devuelve (cuadro, numero)."""
+        with self._condicion:
+            self._condicion.wait_for(lambda: self._numero != ultimo_numero or not self.activa, timeout=espera)
+            return self._cuadro, self._numero
+
+    def cerrar(self):
+        self.activa = False
+        if self._hilo:
+            self._hilo.join(timeout=1)
+        self.cap.release()
 
 
-def dibujar_panel(estado):
-    """Panel lateral del script original, con una línea extra para el estado del sistema."""
-    panel = np.zeros((480, 350, 3), dtype=np.uint8)
-    panel[:] = (40, 40, 40)
-    cv2.putText(panel, "CONTROL CADENA FRIO", (20, 40), cv2.FONT_HERSHEY_DUPLEX, 0.7, (0, 255, 255), 2)
-    cv2.line(panel, (20, 55), (330, 55), (100, 100, 100), 1)
+class LectorArduino:
+    """Lee el Arduino en un hilo propio y envía las lecturas al sistema.
 
-    color_puerta = (0, 255, 0) if estado["puerta"] == "CERRADA" else (0, 0, 255)
-    filas = [
-        ("ESTADO PUERTA:", estado["puerta"], color_puerta, 100),
-        ("TEMPERATURA:", f"{estado['temp']} C", (255, 255, 255), 175),
-        ("TEMPORIZADOR:", estado["tiempo"], (255, 255, 0), 250),
-        ("ESTADO SISTEMA:", estado["est"], (0, 165, 255), 325),
-    ]
-    for titulo, valor, color, y in filas:
-        cv2.putText(panel, titulo, (20, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
-        cv2.putText(panel, str(valor), (20, y + 30), cv2.FONT_HERSHEY_DUPLEX, 0.8, color, 2)
+    Antes, la lectura serial se hacía en el bucle del video y podía frenarlo hasta 0,1 s
+    cuando llegaba una línea a medias. Ahora se arma la línea completa antes de usarla.
+    """
 
-    conectado = estado["sistema"]
-    cv2.putText(panel, "SISTEMA FARMACIA:", (20, 400), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
-    cv2.putText(panel, "CONECTADO" if conectado else "SIN CONEXION", (20, 430),
-                cv2.FONT_HERSHEY_DUPLEX, 0.7, (0, 255, 0) if conectado else (0, 0, 255), 2)
-    cv2.putText(panel, "R: recargar rostros  ESC: salir", (20, 465),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.45, (150, 150, 150), 1)
-    return panel
+    def __init__(self, arduino, sistema):
+        self.arduino = arduino
+        self.sistema = sistema
+        self.puerto = None
+        if arduino is not None:
+            nombre = str(getattr(arduino, "name", None) or getattr(arduino, "portstr", None) or "Conectado")
+            self.puerto = "Wokwi (simulado)" if nombre.startswith("rfc2217") else nombre
+        self.estado = {"temp": "--", "puerta": "DESCONOCIDA", "tiempo": "00:00:00", "est": "Iniciando..."}
+        self._bloqueo = threading.Lock()
+        self._bloqueo_escritura = threading.Lock()
+        self._activo = arduino is not None
+        self._hilo = None
+        if self._activo:
+            self._hilo = threading.Thread(target=self._leer, daemon=True)
+            self._hilo.start()
+
+    def leer_estado(self):
+        with self._bloqueo:
+            return dict(self.estado)
+
+    def enviar(self, comando):
+        """Manda un comando al Arduino. Devuelve False si no hay Arduino o falló el envío."""
+        if not self.arduino:
+            return False
+        try:
+            with self._bloqueo_escritura:
+                self.arduino.write(comando)
+            return True
+        except Exception as e:
+            print(f"Error al enviar datos por serial al Arduino: {e}")
+            return False
+
+    def _leer(self):
+        pendiente = b""
+        ultimo_envio_lectura = 0.0
+        ultima_puerta_enviada = None
+        while self._activo:
+            try:
+                trozo = self.arduino.readline()
+            except Exception as e:
+                if self._activo:
+                    print(f"Error leyendo serial: {e}")
+                    time.sleep(1)
+                continue
+            if not trozo:
+                continue
+            pendiente += trozo
+            if not pendiente.endswith(b"\n"):
+                if len(pendiente) > 1000:  # basura sin fin de línea: se descarta
+                    pendiente = b""
+                continue  # línea incompleta: se espera el resto
+            linea = pendiente.decode("utf-8", errors="ignore").strip()
+            pendiente = b""
+            if "TEMP:" not in linea:
+                continue
+
+            with self._bloqueo:
+                for parte in linea.split(","):
+                    clave, _, valor = parte.partition(":")
+                    if clave == "TEMP":
+                        self.estado["temp"] = valor
+                    elif clave == "PUERTA":
+                        self.estado["puerta"] = valor
+                    elif clave == "TIEMPO":
+                        self.estado["tiempo"] = valor
+                    elif clave == "EST":
+                        self.estado["est"] = valor
+                estado = dict(self.estado)
+
+            # Envío al sistema cada N segundos, o en el momento en que cambia la puerta (igual que antes)
+            ahora = time.time()
+            if (ahora - ultimo_envio_lectura >= config.ENVIAR_LECTURA_CADA_SEG
+                    or estado["puerta"] != ultima_puerta_enviada):
+                try:
+                    self.sistema.enviar_lectura(float(estado["temp"]), estado["puerta"],
+                                                estado["tiempo"], estado["est"])
+                    print(f"Lectura enviada al sistema: {estado['temp']} C, puerta {estado['puerta']}, estado {estado['est']}")
+                    ultimo_envio_lectura = ahora
+                    ultima_puerta_enviada = estado["puerta"]
+                except ValueError:
+                    pass  # temperatura todavía no válida
+
+    def cerrar(self):
+        self._activo = False
+        if self._hilo:
+            self._hilo.join(timeout=1)
+        if self.arduino:
+            self.arduino.close()
+
+
+class MotorReconocimiento:
+    """Ejecuta el reconocimiento facial (reconocimiento.py) en un proceso aparte."""
+
+    def __init__(self):
+        # "spawn" en todos los sistemas (es lo que usa Windows): el proceso arranca limpio.
+        self._contexto = multiprocessing.get_context("spawn")
+        self._ejecutor = self._crear()
+
+    def _crear(self):
+        return ProcessPoolExecutor(max_workers=1, mp_context=self._contexto)
+
+    def analizar(self, rgb_pequeno):
+        """Devuelve un Future con (ubicaciones, codificaciones), o None si no se pudo enviar."""
+        try:
+            return self._ejecutor.submit(reconocimiento.analizar, rgb_pequeno)
+        except (BrokenProcessPool, RuntimeError):
+            self.reiniciar()
+            return None
+
+    def codificar(self, fotos_rgb):
+        """Vectores de las fotos de referencia (espera el resultado)."""
+        if not fotos_rgb:
+            return []
+        try:
+            return self._ejecutor.submit(reconocimiento.codificar_fotos, fotos_rgb).result()
+        except BrokenProcessPool:
+            self.reiniciar()
+            return self._ejecutor.submit(reconocimiento.codificar_fotos, fotos_rgb).result()
+
+    def reiniciar(self):
+        print("El proceso de reconocimiento se detuvo; se vuelve a iniciar...")
+        self._ejecutor.shutdown(wait=False, cancel_futures=True)
+        self._ejecutor = self._crear()
+
+    def cerrar(self):
+        self._ejecutor.shutdown(wait=False, cancel_futures=True)
 
 
 # ─────────────────────────────────── Programa principal ───────────────────────────────────
@@ -286,7 +450,8 @@ def main():
             pass  # sin conexión: se mantiene la lista actual
 
     sistema = ClienteSistema(config.URL_SISTEMA, config.API_KEY, actualizar_permiso)
-    arduino = abrir_arduino()
+    arduino = LectorArduino(abrir_arduino(), sistema)
+    motor = MotorReconocimiento()
 
     def cargar_rostros():
         try:
@@ -295,75 +460,41 @@ def main():
         except requests.RequestException as e:
             print(f"No se pudo conectar con {config.URL_SISTEMA} ({e.__class__.__name__}). Uso la carpeta de respaldo.")
             descargados = rostros_respaldo()
-        enc, datos = codificar(descargados)
+        enc, datos = codificar(descargados, motor)
         with rostros_lock:
             rostros["encodings"], rostros["datos"] = enc, datos
 
+    print("Preparando el reconocimiento facial (la primera vez tarda unos segundos)...")
     cargar_rostros()
 
-    cap = abrir_camara()
-    if not cap.isOpened():
+    camara = CamaraEnVivo(config.CAMARA_INDICE)
+    if not camara.activa:
         print(f"Error: no se pudo abrir la cámara {config.CAMARA_INDICE}. Probá otro índice en config.py")
+        arduino.cerrar()
+        motor.cerrar()
         return
     print("Iniciando reconocimiento. R = recargar rostros, ESC = salir.")
+    pantalla.crear_ventana()
 
-    estado = {"temp": "--", "puerta": "DESCONOCIDA", "tiempo": "00:00:00", "est": "Iniciando...", "sistema": False}
     ultimo_registro = {}
-    cuadros_seguidos = {}           # clave -> cantidad de cuadros consecutivos en que se vio
+    cuadros_seguidos = {}           # clave -> cantidad de cuadros analizados seguidos en que se vio
     ultima_sincronizacion = time.time()
-    ultimo_envio_lectura = 0.0
-    ultima_puerta_enviada = None
+    ultimo_acceso = None            # (nombre, resultado, hora) para el panel
+    caras = []                      # recuadros del último análisis, para dibujar
+    momento_caras = 0.0
+    analisis = None                 # Future del análisis en curso
+    numero_cuadro = 0
+    numero_analizado = 0
+    ventana_vista = False           # para detectar el cierre con la X solo después de que se vio la ventana
 
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            break
-        frame = cv2.flip(frame, 1)
-
-        # --- Lectura del Arduino: se leen todas las líneas pendientes y se usa la última ---
-        if arduino:
-            try:
-                linea = None
-                while arduino.in_waiting > 0:
-                    linea = arduino.readline().decode("utf-8", errors="ignore").strip() or linea
-                if linea and "TEMP:" in linea:
-                    for parte in linea.split(","):
-                        clave, _, valor = parte.partition(":")
-                        if clave == "TEMP":
-                            estado["temp"] = valor
-                        elif clave == "PUERTA":
-                            estado["puerta"] = valor
-                        elif clave == "TIEMPO":
-                            estado["tiempo"] = valor
-                        elif clave == "EST":
-                            estado["est"] = valor
-
-                    # Envío al sistema cada N segundos, o en el momento en que cambia la puerta
-                    ahora = time.time()
-                    if (ahora - ultimo_envio_lectura >= config.ENVIAR_LECTURA_CADA_SEG
-                            or estado["puerta"] != ultima_puerta_enviada):
-                        try:
-                            sistema.enviar_lectura(float(estado["temp"]), estado["puerta"],
-                                                   estado["tiempo"], estado["est"])
-                            print(f"Lectura enviada al sistema: {estado['temp']} C, puerta {estado['puerta']}, estado {estado['est']}")
-                            ultimo_envio_lectura = ahora
-                            ultima_puerta_enviada = estado["puerta"]
-                        except ValueError:
-                            pass  # temperatura todavía no válida
-            except Exception as e:
-                print(f"Error leyendo serial: {e}")
-
-        frame = cv2.resize(frame, (640, 480))
-        frame_pequeno = cv2.resize(frame, (0, 0), fx=config.ESCALA, fy=config.ESCALA)
-        rgb_pequeno = cv2.cvtColor(frame_pequeno, cv2.COLOR_BGR2RGB)
-
-        ubicaciones = face_recognition.face_locations(rgb_pequeno)
-        codificaciones = face_recognition.face_encodings(rgb_pequeno, ubicaciones)
-
+    def procesar_analisis(ubicaciones, codificaciones, puerta_abierta):
+        """La misma lógica de acceso del script original, aplicada a cada cuadro analizado."""
+        nonlocal ultimo_acceso
         with rostros_lock:
             encodings_ref = list(rostros["encodings"])
             datos_ref = list(rostros["datos"])
 
+        nuevas_caras = []
         claves_en_cuadro = set()
         for (top, right, bottom, left), enc_actual in zip(ubicaciones, codificaciones):
             factor = 1 / config.ESCALA
@@ -387,7 +518,7 @@ def main():
             necesarios = config.CUADROS_CONFIRMAR_DESCONOCIDO if resultado == DESCONOCIDO else config.CUADROS_CONFIRMAR
             confirmado = cuadros_seguidos[clave] >= necesarios
 
-            if estado["puerta"] == "ABIERTA" and confirmado:
+            if puerta_abierta and confirmado:
                 ahora = datetime.now()
                 previo = ultimo_registro.get(clave)  # (momento, resultado) del último registro
                 if (previo is None or previo[1] != resultado
@@ -398,50 +529,87 @@ def main():
                         f.write(mensaje)
                     print(f"Log registrado: {mensaje.strip()}")
                     ultimo_registro[clave] = (ahora.timestamp(), resultado)
+                    ultimo_acceso = (nombre, resultado, f"{ahora:%H:%M:%S}")
 
                     sistema.enviar_acceso(usuario_id, nombre, True, distancia)
 
-                    if resultado != AUTORIZADO and arduino:
-                        try:
-                            arduino.write(b"ALARMA_INTRUSO\n")
+                    if resultado != AUTORIZADO:
+                        if arduino.enviar(b"ALARMA_INTRUSO\n"):
                             print("¡Señal de alarma enviada al Arduino por acceso denegado!")
-                        except Exception as e:
-                            print(f"Error al enviar datos por serial al Arduino: {e}")
                     else:
                         print(f"Acceso autorizado para {nombre}")
-                        arduino.write(b"ACCESO_OK\n")
-                        print("Señal de acceso autorizado enviada al Arduino")
-            color = COLORES[resultado]
-            etiqueta = nombre if resultado != SIN_PERMISO else f"{nombre} (SIN PERMISO)"
-            cv2.rectangle(frame, (left, top), (right, bottom), color, 2)
-            cv2.rectangle(frame, (left, bottom - 30), (right, bottom), color, cv2.FILLED)
-            cv2.putText(frame, etiqueta, (left + 6, bottom - 6), cv2.FONT_HERSHEY_DUPLEX, 0.6, (255, 255, 255), 1)
+                        if arduino.enviar(b"ACCESO_OK\n"):
+                            print("Señal de acceso autorizado enviada al Arduino")
+
+            nuevas_caras.append((top, right, bottom, left, nombre, resultado))
 
         # Olvidar las identidades que no aparecieron en este cuadro
         for clave in list(cuadros_seguidos):
             if clave not in claves_en_cuadro:
                 del cuadros_seguidos[clave]
+        return nuevas_caras
 
-        # Cada N segundos se traen los permisos actuales del sistema (sin volver a bajar fotos)
-        if time.time() - ultima_sincronizacion >= config.SINCRONIZAR_PERMISOS_CADA_SEG:
-            ultima_sincronizacion = time.time()
-            threading.Thread(target=sincronizar_permisos, daemon=True).start()
+    try:
+        while True:
+            cuadro, numero_cuadro = camara.siguiente(numero_cuadro)
+            if not camara.activa or cuadro is None:
+                break
+            cuadro = cuadro.copy()
+            estado = arduino.leer_estado()
 
-        estado["sistema"] = sistema.conectado
-        cv2.imshow("Control Cadena de Frio Farmacos HGS", np.hstack((frame, dibujar_panel(estado))))
+            # --- Resultado del análisis anterior (si ya terminó) ---
+            if analisis is not None and analisis.done():
+                try:
+                    ubicaciones, codificaciones = analisis.result()
+                    caras = procesar_analisis(ubicaciones, codificaciones, estado["puerta"] == "ABIERTA")
+                    momento_caras = time.time()
+                except BrokenProcessPool:
+                    motor.reiniciar()
+                except Exception as e:
+                    print(f"Error en el reconocimiento facial: {e}")
+                analisis = None
 
-        tecla = cv2.waitKey(1) & 0xFF
-        if tecla == 27:
-            break
-        if tecla in (ord("r"), ord("R")):
-            print("Recargando rostros desde el sistema...")
-            threading.Thread(target=cargar_rostros, daemon=True).start()
+            # --- Mandar a analizar el cuadro más nuevo (de a uno por vez) ---
+            if analisis is None and numero_cuadro != numero_analizado:
+                pequeno = cv2.resize(cuadro, (0, 0), fx=config.ESCALA, fy=config.ESCALA)
+                analisis = motor.analizar(cv2.cvtColor(pequeno, cv2.COLOR_BGR2RGB))
+                numero_analizado = numero_cuadro
 
-    if arduino:
-        arduino.close()
-    cap.release()
-    cv2.destroyAllWindows()
+            # --- Dibujo ---
+            if time.time() - momento_caras > 1.0:
+                caras = []  # análisis viejo (por ejemplo, mientras se recargan los rostros)
+            for top, right, bottom, left, nombre, resultado in caras:
+                pantalla.dibujar_cara(cuadro, top, right, bottom, left, nombre, resultado)
+            pantalla.dibujar_aviso_puerta(cuadro, estado["puerta"])
+
+            # Cada N segundos se traen los permisos actuales del sistema (sin volver a bajar fotos)
+            if time.time() - ultima_sincronizacion >= config.SINCRONIZAR_PERMISOS_CADA_SEG:
+                ultima_sincronizacion = time.time()
+                threading.Thread(target=sincronizar_permisos, daemon=True).start()
+
+            with rostros_lock:
+                n_rostros = len(rostros["datos"])
+            panel = pantalla.dibujar_panel(estado, arduino.arduino is not None, arduino.puerto,
+                                           sistema.conectado, n_rostros, ultimo_acceso)
+            cv2.imshow(pantalla.TITULO_VENTANA, pantalla.componer(cuadro, panel))
+
+            tecla = cv2.waitKey(1) & 0xFF
+            if tecla == 27:
+                break
+            if pantalla.ventana_visible():
+                ventana_vista = True
+            elif ventana_vista:
+                break  # se cerró la ventana con la X
+            if tecla in (ord("r"), ord("R")):
+                print("Recargando rostros desde el sistema...")
+                threading.Thread(target=cargar_rostros, daemon=True).start()
+    finally:
+        arduino.cerrar()
+        camara.cerrar()
+        motor.cerrar()
+        cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":
+    multiprocessing.freeze_support()
     main()

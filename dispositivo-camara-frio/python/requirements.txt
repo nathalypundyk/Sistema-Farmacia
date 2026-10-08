@@ -2,5 +2,6 @@ opencv-python
 numpy
 pyserial
 requests
+pillow
 # face_recognition depende de dlib. En Windows ver el README (sección "Instalar face_recognition en Windows").
 face_recognition
